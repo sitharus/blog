@@ -1,4 +1,5 @@
 use crate::types::{AdminMenuPages, Post};
+use crate::utils::render_html;
 use askama::Template;
 use cgi;
 use sqlx::query_as;
@@ -21,10 +22,13 @@ pub async fn render(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
     let recent_posts = query_as!(
         Post,
         "SELECT * FROM posts ORDER BY post_date DESC FETCH FIRST 10 ROWS ONLY"
-    ).fetch_all(&mut connection).await?;
+    )
+    .fetch_all(&mut connection)
+    .await?;
     let content = Dashboard {
         selected_menu_item: AdminMenuPages::Dashboard,
         recent_posts,
     };
-    Ok(cgi::html_response(200, content.render().unwrap()))
+
+    render_html(content)
 }

@@ -14,9 +14,9 @@ use super::session;
 use anyhow::anyhow;
 use askama::Template;
 use cgi;
+use regex::Regex;
 use serde::Deserialize;
 use sqlx::{query, query_as};
-use regex::Regex;
 
 #[derive(Template)]
 #[template(path = "new_post.html")]
@@ -58,11 +58,11 @@ pub async fn new_post(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
     if request.method() == "POST" {
         let req: NewPostRequest = post_body(request)?;
 
-		let invalid_chars = Regex::new(r"[^a-z0-9_-]+")?;
-		let mut initial_slug = req.title.clone();
-		initial_slug.make_ascii_lowercase();
-		let slug = invalid_chars.replace_all(&initial_slug, " ");
-		let final_slug: &str = &slug.to_owned();
+        let invalid_chars = Regex::new(r"[^a-z0-9_-]+")?;
+        let mut initial_slug = req.title.clone();
+        initial_slug.make_ascii_lowercase();
+        let slug = invalid_chars.replace_all(&initial_slug, " ");
+        let final_slug: &str = &slug.to_owned();
         let result = sqlx::query!("INSERT INTO posts(author_id, post_date, updated_date, url_slug, title, body) VALUES($1, current_timestamp, current_timestamp, $2, $3, $4)",
 					 user_id,
 					 final_slug.trim(),
@@ -77,7 +77,7 @@ pub async fn new_post(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
                 body: req.body.as_str(),
                 selected_menu_item: AdminMenuPages::NewPost,
             };
-            Ok(cgi::html_response(200, content.render().unwrap()))
+            render_html(content)
         };
     }
 
@@ -109,19 +109,19 @@ pub async fn edit_post(
         )
         .execute(&mut connection)
         .await?;
-		render_redirect("posts")
+        render_redirect("posts")
     } else {
-		let post = sqlx::query!("SELECT title, body FROM posts WHERE id = $1", id)
-			.fetch_one(&mut connection)
-			.await?;
+        let post = sqlx::query!("SELECT title, body FROM posts WHERE id = $1", id)
+            .fetch_one(&mut connection)
+            .await?;
 
-		let content = EditPost {
-			title: &post.title,
-			body: &post.body,
-			selected_menu_item: AdminMenuPages::Posts,
-		};
-		render_html(content)
-	}
+        let content = EditPost {
+            title: &post.title,
+            body: &post.body,
+            selected_menu_item: AdminMenuPages::Posts,
+        };
+        render_html(content)
+    }
 }
 
 pub async fn manage_posts(query: HashMap<String, String>) -> anyhow::Result<cgi::Response> {

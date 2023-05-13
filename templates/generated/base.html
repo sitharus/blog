@@ -15,7 +15,7 @@
 		</section>
 		<section>
 			<h1>Archives</h1>
-			<ul class="archive_posts">
+			<ul>
 			{% for year in common.archive_years %}
 				<li><a href="{{common.base_url}}{{year}}/">{{year}}</a></li>
 			{% endfor %}
@@ -24,7 +24,7 @@
 
 		<section>
 			<h1>Links</h1>
-			<ul class="archive_posts">
+			<ul>
 				{% for link in common.links %}
 				<li><a href="{{link.destination}}">{{link.title}}</a></li>
 				{% endfor %}

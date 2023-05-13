@@ -6,7 +6,7 @@ use async_std::task;
 use serde::Deserialize;
 use serde_querystring::{from_bytes, ParseMode};
 use session::SessionError;
-use utils::{parse_query_string, render_html};
+use utils::{parse_query_string, render_html, render_html_status};
 
 mod account;
 mod dashboard;
@@ -48,12 +48,12 @@ struct UserRow {
 
 async fn do_login(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
     if request.method() != "POST" {
-        return Ok(do_404().await);
+        return do_404().await;
     }
     let post_items = request.body();
     let form: LoginForm = from_bytes(post_items, ParseMode::UrlEncoded)?;
 
-    let mut db_connection = database::connect_db().await.unwrap();
+    let mut db_connection = database::connect_db().await?;
     let single_row = sqlx::query_as!(
         UserRow,
         "SELECT id, password FROM users WHERE username = $1",
@@ -68,7 +68,7 @@ async fn do_login(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
             message: Some("Invalid username or password"),
         };
 
-        Ok(cgi::html_response(200, content.render()?))
+        render_html(content)
     }
 
     match single_row {
@@ -100,9 +100,9 @@ async fn do_login(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
     }
 }
 
-async fn do_404() -> cgi::Response {
+async fn do_404() -> anyhow::Result<cgi::Response> {
     let content = Page404 {};
-    cgi::html_response(404, content.render().unwrap())
+    render_html_status(404, content)
 }
 
 async fn process(request: &cgi::Request, query_string: &str) -> anyhow::Result<cgi::Response> {
@@ -112,8 +112,8 @@ async fn process(request: &cgi::Request, query_string: &str) -> anyhow::Result<c
     if action == "login" {
         do_login(request).await
     } else {
-		let mut connection = database::connect_db().await?;
-		session::session_id(&mut connection, &request).await?;
+        let mut connection = database::connect_db().await?;
+        session::session_id(&mut connection, &request).await?;
         match action.as_str() {
             "dashboard" => dashboard::render(request).await,
             "new-post" => post::new_post(request).await,
@@ -123,7 +123,7 @@ async fn process(request: &cgi::Request, query_string: &str) -> anyhow::Result<c
             "links" => links::render(request).await,
             "posts" => post::manage_posts(query).await,
             "edit_post" => post::edit_post(request, query).await,
-            _ => Ok(do_404().await),
+            _ => do_404().await,
         }
     }
 }

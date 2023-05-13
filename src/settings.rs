@@ -1,13 +1,12 @@
 use std::collections::HashMap;
 
 use crate::types::AdminMenuPages;
+use crate::utils::post_body;
 use askama::Template;
 use cgi;
-use serde_querystring::from_bytes;
 use sqlx::query;
 
 use super::database;
-use super::session;
 
 #[derive(Template)]
 #[template(path = "settings.html")]
@@ -19,12 +18,9 @@ struct Settings {
 
 pub async fn render(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
     let mut connection = database::connect_db().await?;
-    session::session_id(&mut connection, &request).await?;
 
     if request.method() == "POST" {
-        let post_items = request.body();
-        let content: HashMap<String, String> =
-            from_bytes(post_items, serde_querystring::ParseMode::UrlEncoded)?;
+        let content: HashMap<String, String> = post_body(request)?;
 
         for setting in ["blog_name", "base_url"] {
             if let Some(value) = content.get(setting) {

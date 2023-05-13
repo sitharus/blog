@@ -2,15 +2,16 @@ use crate::database;
 use crate::response::redirect_response;
 use crate::session;
 
+use anyhow::anyhow;
 use askama::Template;
 use async_std::fs::create_dir_all;
+use itertools::Itertools;
 use sqlx::{query, query_as};
-use time::{OffsetDateTime, Month};
 use std::collections::HashMap;
 use std::env;
 use std::fs::File;
 use std::io::prelude::*;
-use itertools::Itertools;
+use time::{Month, OffsetDateTime};
 
 pub struct HydratedPost {
     pub post_date: time::OffsetDateTime,
@@ -21,15 +22,15 @@ pub struct HydratedPost {
 }
 
 pub struct Link {
-	pub title: String,
-	pub destination: String,
+    pub title: String,
+    pub destination: String,
 }
 
 pub struct CommonData {
     base_url: String,
     blog_name: String,
     archive_years: Vec<i32>,
-	links: Vec<Link>,
+    links: Vec<Link>,
 }
 
 #[derive(Template)]
@@ -54,7 +55,7 @@ struct MonthIndexPage<'a> {
     title: &'a str,
     posts: Vec<&'a HydratedPost>,
     common: &'a CommonData,
-	date: &'a OffsetDateTime,
+    date: &'a OffsetDateTime,
 }
 
 #[derive(Template)]
@@ -63,12 +64,12 @@ struct YearIndexPage<'a> {
     title: &'a str,
     posts_by_month: Vec<(Month, Vec<&'a HydratedPost>)>,
     common: &'a CommonData,
-	date: &'a OffsetDateTime,
+    date: &'a OffsetDateTime,
 }
 
 mod filters {
-    use super::{HydratedPost, CommonData};
-	use ordinal::Ordinal;
+    use super::{CommonData, HydratedPost};
+    use ordinal::Ordinal;
     use time::{
         format_description::{self, well_known::Rfc3339},
         OffsetDateTime,
@@ -77,7 +78,7 @@ mod filters {
     pub fn posturl(post: &HydratedPost, common: &CommonData) -> ::askama::Result<String> {
         let url = format!(
             "{}{}/{}/{}.html",
-			common.base_url,
+            common.base_url,
             post.post_date.year(),
             post.post_date.month(),
             post.url_slug
@@ -99,17 +100,18 @@ mod filters {
             .map_err(|e| ::askama::Error::Custom(e.into()))
     }
 
-	pub fn format_weekday(date_time: &OffsetDateTime) -> ::askama::Result<String> {
-		let weekday = date_time.weekday();
-		let day = Ordinal(date_time.day());
-		Ok(format!("{} {}", weekday, day))
-	}
+    pub fn format_weekday(date_time: &OffsetDateTime) -> ::askama::Result<String> {
+        let weekday = date_time.weekday();
+        let day = Ordinal(date_time.day());
+        Ok(format!("{} {}", weekday, day))
+    }
 }
 
 pub async fn regenerate_blog(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
     let mut connection = database::connect_db().await?;
     session::session_id(&mut connection, &request).await?;
-    let output_path = env::var("BLOG_OUTPUT_PATH").expect("Environment variable BLOG_OUTPUT_PATH is required");
+    let output_path =
+        env::var("BLOG_OUTPUT_PATH").expect("Environment variable BLOG_OUTPUT_PATH is required");
 
     let raw_settings = query!("SELECT setting_name, value FROM blog_settings")
         .fetch_all(&mut connection)
@@ -117,7 +119,12 @@ pub async fn regenerate_blog(request: &cgi::Request) -> anyhow::Result<cgi::Resp
     let settings: HashMap<String, String> =
         HashMap::from_iter(raw_settings.into_iter().map(|r| (r.setting_name, r.value)));
 
-	let links = query_as!(Link, "SELECT title, destination FROM external_links ORDER BY position").fetch_all(&mut connection).await?;
+    let links = query_as!(
+        Link,
+        "SELECT title, destination FROM external_links ORDER BY position"
+    )
+    .fetch_all(&mut connection)
+    .await?;
 
     let posts = query_as!(
         HydratedPost,
@@ -135,16 +142,22 @@ ORDER BY post_date DESC"
         return Ok(redirect_response("dashboard"));
     }
 
-	let earliest_year = posts.last().unwrap().post_date.year();
+    let earliest_year = posts.last().ok_or(anyhow!("No posts!"))?.post_date.year();
     let current_year = time::OffsetDateTime::now_utc().year();
-	let mut years:  Vec<i32> = (earliest_year..=current_year).collect();
-	years.reverse();
+    let mut years: Vec<i32> = (earliest_year..=current_year).collect();
+    years.reverse();
 
     let common = CommonData {
-        base_url: settings.get("base_url").unwrap().to_owned(),
-        blog_name: settings.get("blog_name").unwrap().to_owned(),
+        base_url: settings
+            .get("base_url")
+            .ok_or(anyhow!("No blog URL set"))?
+            .to_owned(),
+        blog_name: settings
+            .get("blog_name")
+            .ok_or(anyhow!("No blog name set"))?
+            .to_owned(),
         archive_years: years,
-		links
+        links,
     };
     for post in &posts {
         let dir = format!(
@@ -160,7 +173,7 @@ ORDER BY post_date DESC"
         let post_page = PostPage {
             title: &post.title,
             post,
-			common: &common
+            common: &common,
         };
 
         let rendered = post_page.render()?;
@@ -196,7 +209,11 @@ async fn regenerate_month_index_pages(
     posts: &Vec<HydratedPost>,
     common: &CommonData,
 ) -> anyhow::Result<()> {
-    let mut current_date = posts.last().unwrap().post_date.replace_day(1).unwrap();
+    let mut current_date = posts
+        .last()
+        .ok_or(anyhow!("No posts!"))?
+        .post_date
+        .replace_day(1)?;
     let now = time::OffsetDateTime::now_utc();
 
     while current_date <= now {
@@ -222,7 +239,7 @@ async fn regenerate_month_index_pages(
             title: title.as_str(),
             posts: month_posts,
             common,
-			date: &current_date
+            date: &current_date,
         };
 
         let rendered = page.render()?;
@@ -240,7 +257,11 @@ async fn regenerate_year_index_pages(
     posts: &Vec<HydratedPost>,
     common: &CommonData,
 ) -> anyhow::Result<()> {
-    let mut current_date = posts.last().unwrap().post_date.replace_day(1).unwrap();
+    let mut current_date = posts
+        .last()
+        .ok_or(anyhow!("No posts!"))?
+        .post_date
+        .replace_day(1)?;
     let now = time::OffsetDateTime::now_utc();
 
     while current_date <= now {
@@ -253,19 +274,17 @@ async fn regenerate_year_index_pages(
             .filter(|p| p.post_date.year() == current_date.year())
             .collect();
         month_posts.sort_by(|a, b| a.post_date.cmp(&b.post_date));
-		let mut grouped = Vec::new();
-		for (key, group) in &month_posts.into_iter().group_by(|p| p.post_date.month()) {
-			grouped.push((key, group.collect()));
-		}
-
+        let mut grouped = Vec::new();
+        for (key, group) in &month_posts.into_iter().group_by(|p| p.post_date.month()) {
+            grouped.push((key, group.collect()));
+        }
 
         let title = format!("{}", current_date.year());
         let page = YearIndexPage {
             title: title.as_str(),
-            posts_by_month: grouped ,
+            posts_by_month: grouped,
             common,
-			date: &current_date
-
+            date: &current_date,
         };
 
         let rendered = page.render()?;
