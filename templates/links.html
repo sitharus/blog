@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block content %}
+	<h1>Links</h1>
+
+	<table>
+		<thead>
+			<tr><th>Title</th><th>Destination</th><th></th></tr>
+		</thead>
+		<tbody>
+			{% for link in links %}
+			<tr>
+				<td>{{link.title}}</td>
+				<td><a href="{{link.destination}}">{{link.destination}}</a></td>
+				<td>
+					<form action="" method="POST">
+						<input type="hidden" name="id" value="{{link.id}}">
+						<input type="hidden" name="position" value="{{link.position}}">
+						{# Confirmation is for the weak #}
+						<div class="action-group">
+							<button name="action" value="delete" class="table-action">Delete</button>
+							{% if !loop.first %}
+								<button name="action" value="up" class="table-action">Up</button>
+							{% else %}
+								<div></div>
+							{% endif %}
+							{% if !loop.last %}
+							<button name="action" value="down" class="table-action">Down</button>
+							{% endif %}
+						</div>
+					</form>
+				</td>
+			</tr>
+			{% endfor %}
+		</tbody>
+	</table>
+	<section>
+		<h1>New Link</h1>
+		<form action="" method="POST">
+			<input type="hidden" name="action" value="add">
+			<label>
+				Title
+				<input type="text" name="title" >
+			</label>
+			<label>
+				URL
+				<input type="text" name="url">
+			</label>
+			<button type="submit">Add</button>
+		</form>
+	</section>
+	
+{% endblock %}

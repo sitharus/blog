@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% import "macros.html" as macros %}
+{% block body  %}
+	<header>
+		<h1>{{title}}</h1>
+	</header>
+
+	<main>
+	{% for post in posts %}
+		{% call macros::format_post(post) %}
+	{% endfor %}
+	</main>
+{% endblock %}

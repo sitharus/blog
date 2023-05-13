@@ -1,0 +1,276 @@
+@font-face {
+  font-family: "Playfair Display";
+  src: url("PlayfairDisplay-VariableFont_wght.woff2") format("woff2");
+}
+
+
+@font-face {
+  font-family: "Montserrat";
+  src: url("Montserrat-VariableFont_wght.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Montserrat";
+  font-style: italic;
+  src: url("Montserrat-Italic-VariableFont_wght.woff2") format("woff2");
+}
+
+.rgba-primary-0 { color: rgba(122,115,159,1) }	/* Main Primary color */
+.rgba-primary-1 { color: rgba(214,212,221,1) }
+.rgba-primary-2 { color: rgba(162,156,187,1) }
+.rgba-primary-3 { color: rgba( 88, 79,133,1) }
+.rgba-primary-4 { color: rgba( 61, 52,109,1) }
+
+.rgba-secondary-1-0 { color: rgba(230,227,157,1) }	/* Main Secondary color (1) */
+.rgba-secondary-1-1 { color: rgba(255,255,244,1) }
+.rgba-secondary-1-2 { color: rgba(255,253,207,1) }
+.rgba-secondary-1-3 { color: rgba(193,190,103,1) }
+.rgba-secondary-1-4 { color: rgba(157,154, 63,1) }
+
+.rgba-secondary-2-0 { color: rgba(230,203,157,1) }	/* Main Secondary color (2) */
+.rgba-secondary-2-1 { color: rgba(255,251,244,1) }
+.rgba-secondary-2-2 { color: rgba(255,237,207,1) }
+.rgba-secondary-2-3 { color: rgba(193,160,103,1) }
+.rgba-secondary-2-4 { color: rgba(157,123, 63,1) }
+
+
+:root {
+
+
+
+	--link-colour: rgb(61, 52, 109);
+	--link-underline-colour: #766BAA;
+	--link-contrast-color: rgb(157, 123, 63);
+	--nav-background: #ECEAF6;
+	--nav-background-dark: rgba(202, 197, 227, 0.7);
+	--nav-background-dark-gradient: rgba(202, 197, 227, 0.3);
+	--nav-selected-border: 1px solid var(--link-colour);
+	--nav-link-hover-background: rgba(255, 250, 241, 0.4);
+	--main-background: rgb(255, 250, 241);
+	--main-box-shadow: rgba(157, 123, 63, 0.2);
+
+	--primary-button-border: rgb(61, 52, 109);
+	--primary-button-background: rgb(61, 52, 109);
+	--primary-button-background-hover: color-mix(in lch, var(--primary-button-background) 95%, white);
+	--primary-button-color: rgb(252, 251, 255);
+
+	--table-border-color: rgba(230,203,157,1);
+	--table-alternate-background: rgba(255,237,207,1);
+}
+
+
+
+html {
+	font-family: "Montserrat", sans-serif;
+
+}
+
+h1, h2, h3, h4, h5, h6 {
+	font-family: "Playfair Display", sans-serif;
+}
+
+
+body {
+	display: grid;
+	grid-template: "nav body" auto / 15rem 1fr;
+	padding: 0;
+	margin: 0;
+	min-height: 100vh;
+}
+
+nav {
+	background-color: var(--nav-background);
+	background-image:
+
+		linear-gradient(to left in lch, var(--nav-background), var(--nav-background-dark)),
+		repeating-linear-gradient(-25deg, var(--nav-background) 0, var(--nav-background) 5px, var(--nav-background-dark-gradient) 5px, var(--nav-background-dark-gradient) 10px, var(--nav-background) 10px)
+	;
+	padding: 1rem 0;
+}
+
+nav ul {
+	padding: 0;
+}
+
+nav li {
+	list-style: none;
+	margin: 0;
+}
+
+nav a {
+	display: flex;
+	align-items: center;
+	text-decoration: none;
+	color: var(--link-colour);
+	font-weight: 550;
+	height: 3rem;
+	padding: 0 1rem;
+	border-top: 1px solid transparent;
+	border-bottom: 1px solid transparent;
+}
+
+nav a.selected {
+	background-color: var(--nav-background-dark);
+	border-top: var(--nav-selected-border);
+	border-bottom: var(--nav-selected-border);
+
+}
+
+nav a:hover {
+	text-decoration: underline;
+	text-decoration-color:  var(--link-underline-colour);
+	text-underline-position: under;
+	background-color: var(--nav-link-hover-background);
+}
+
+nav a.selected svg, nav a:hover svg {
+	filter: unset;
+}
+
+nav svg {
+	color: var(--link-contrast-color);
+	display: inline-block;
+	margin-right: 0.2rem;
+	margin-left: 0.4rem;
+	filter: grayscale(100%) brightness(120%);
+}
+
+main {
+	padding-left: 2rem;
+	padding-right: 4rem;
+	background: var(--main-background);
+	background-image: linear-gradient(to right, var(--nav-background-dark), var(--main-background) 4px);
+}
+
+form {
+	display: flex;
+	flex-direction: column;
+}
+
+label {
+	display: block;
+	font-size: medium;
+	font-weight: 300;
+}
+
+label > input {
+	display: block;
+	margin-top:0.3rem;
+}
+
+label:has(input) {
+	margin-bottom: 1rem;
+}
+
+textarea {
+	margin-top: 0.3rem;
+	display: block;
+	margin-bottom: 1rem;
+	height: 25lh;
+}
+
+label > :is(input[type=text], input[type=password]) {
+	height: 1.5lh;
+	width: 35em;
+	font-size: medium;
+}
+
+button {
+	flex: 0 0 auto;
+	align-self: flex-end;
+	font-size: medium;
+	padding: 0.5rem 1.5rem;
+	border-radius: 4px;
+	border: 1px solid var(--primary-button-border);
+	background: var(--primary-button-background);
+	color: var(--primary-button-color);
+	font-weight: 550;
+}
+
+
+button:hover {
+	background: var(--primary-button-background-hover);
+	cursor: pointer;
+}
+
+div.action-group {
+	display: flex;
+	flex-direction: row;
+}
+
+div.action-group > * {
+	flex: 0 0 5rem;
+}
+
+button.table-action {
+	background: transparent;
+	color: var(--primary-button-background);
+	border: none;
+}
+
+#login {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	width: 100vw;
+	height: 100vh;
+}
+
+#login main {
+	background-image: unset;
+	padding: 2rem;
+	box-shadow: 0 0 11px 2px var(--main-box-shadow);
+}
+
+#login form {
+	padding: 0;
+}
+
+a {
+	color: var(--link-colour);
+	text-decoration-color: var(--link-underline-colour);
+}
+
+
+table {
+	width: 100%;
+	max-width: 800px;
+	border-collapse: collapse;
+}
+
+thead {
+	border-bottom: 1px solid var(--table-border-color);
+}
+
+tr:nth-child(2n) {
+	background-color: var(--table-alternate-background);
+}
+
+tbody tr:last-child {
+	border-bottom: none;
+}
+
+th, td {
+	padding: 0.3rem;
+
+}
+
+th {
+	text-align: left;
+	position: relative;
+}
+
+th::after {
+	display: inline-block;
+	position: absolute;
+	content: "";
+	padding-right: 0.2rem;
+	height: 70%;
+	right: 0.5rem;
+
+	border-right: 1px solid var(--table-border-color);
+}
+
+th:last-child::after {
+	display: none;
+}

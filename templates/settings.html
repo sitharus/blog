@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block content %}
+	<h1> Settings </h1>
+	<form action="" method="POST">
+		<label>
+			Blog name
+			<input type="text" value="{{blog_name}}" name="blog_name">
+		</label>
+		<label>
+			Base URL
+			<input type="text" value="{{base_url}}" name="base_url">
+		</label>
+		<button type="submit">Save</button>
+
+	</form>
+	
+{% endblock %}

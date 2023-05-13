@@ -1,0 +1,19 @@
+{% macro format_post(post) %}
+	<article>
+		<header>
+			<h1><a href="{{post|posturl(common)}}">{{ post.title }}</a></h1>
+			<p>
+				Posted on <time datetime="{{post.post_date|format_rfc3339_date}}">{{post.post_date|format_human_date}}</time>
+				{%- match post.author_name -%}
+				{%- when Some(name) %} by {{name}}
+				{%- when None -%}
+				{%- endmatch -%}
+			</p>
+		</header>
+		{{ post.body.clone()|markdown }}
+
+		<footer>
+			<a href="{{post|posturl(common)}}">Permalink</a>
+		</footer>
+	</article>
+{% endmacro %}

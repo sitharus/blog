@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block body  %}
+<header>
+	<h1>{{title}}</h1>
+</header>
+
+<main>
+	<nav class="breadcrumbs" aria-label="breadcrumbs">
+		<ul>
+			<li><a href="{{common.base_url}}">Home</a></li>
+			<li>{{date.year()}}</li>
+		</ul>
+	</nav>
+
+	<section class="archive">
+		{% for (month, posts) in posts_by_month %}
+		<h1><a href="{{common.base_url}}{{date.year()}}/{{month}}/">{{month}}</a></h1>
+		<ul class="archive_posts">
+			{% for post in posts %}
+			<li> <a href="{{post|posturl(common)}}">{{ post.title }}</a></li>
+			{% endfor %}
+		</ul>
+		{% endfor %}
+		</ul>
+	</section>
+</main>
+{% endblock %}

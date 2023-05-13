@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block content %}
+	<h1> Posts </h1>
+
+	<section>
+		<div class="pagination">
+			<div>{{ post_count }} posts</div>
+			<div>
+				{% for page in 1..=page_count %}
+					{% if page == current_page  %}
+						<span> {{ page }} </span>
+					{% else %}
+						<a href="?action=posts&page={{page}}&items_per_page={{items_per_page}}">
+							{{ page }}
+						</a>
+					{% endif %}
+				{% endfor %}
+			</div>
+		</div>
+		<table>
+			<thead>
+				<tr>
+					<th>Title</th>
+					<th>Posted on</th>
+					<th>Actions</th>
+				</tr>
+			</thead>
+			<tbody>
+				{% for post in posts %}
+					<tr>
+						<td>{{ post.title }}</td>
+						<td>{{ post.post_date|format_long_date }}</td>
+						<td><a href="?action=edit_post&id={{post.id}}">Edit</a></td>
+					</tr>
+
+				{% endfor %}
+
+			</tbody>
+		</table>
+	</section>
+{% endblock %}

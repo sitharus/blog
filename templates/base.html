@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+	{%- macro isselected(item) -%}
+	{%- if selected_menu_item == item %}selected{% endif -%}
+	{%- endmacro -%}
+<head>
+	<title>Blog Admin</title>
+	<link rel="stylesheet" href="/static/admin.css" type="text/css" media="screen" />
+</head>
+
+<body>
+	<nav>
+		<ul>
+			<li>
+				<a href="?action=dashboard" class="{% call isselected("dashboard") %}"> {% include "dashboard.svg" %} Dashboard </a>
+			</li>
+			<li>
+				<a href="?action=new-post" class="{% call isselected("newpost") %}"> {% include "create.svg" %} New Post </a>
+			</li>
+			<li>
+				<a href="?action=posts" class="{% call isselected("posts") %}"> {% include "article.svg" %} Manage Posts </a>
+			</li>
+			<li>
+				<a href="?action=links" class="{% call isselected("links") %}"> {% include "link.svg" %} Links </a>
+			</li>
+			<li>
+				<a href="?action=settings" class="{% call isselected("settings") %}"> {% include "settings.svg" %} Settings </a>
+			</li>
+			<li>
+				<a href="?action=regenerate" class="{% call isselected("regenerate") %}"> {% include "sync.svg" %} Regenerate Blog </a>
+			</li>
+			<li>
+				<a href="?action=account" class="{% call isselected("account") %}"> {% include "account.svg" %} Account </a>
+			</li>
+		</ul>
+	</nav>
+
+	<main>
+		{% block content %}{% endblock %}
+	</main>
+
+</body>
+
+</html>

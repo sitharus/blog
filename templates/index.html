@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Blog Admin</title>
+		<link rel="stylesheet" href="/static/admin.css" type="text/css" media="screen" />
+	</head>
+	<body id="login">
+
+		<main>
+			{% match message %}
+			{% when Some with (val) %}
+			<p>{{ val }}</p>
+			{% when None %}
+			{% endmatch %}
+			<form method="POST" action="?action=login">
+				<label>Username
+					<input type="text" name="username" value="{{ username.unwrap_or_default() }}"/>
+				</label>
+				<label>Password
+					<input type="password" name="password" />
+				</label>
+				<button type="submit">Login</button>
+			</form>
+		</main>
+	</body>
+
+</html>

@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% import "macros.html" as macros %}
+{% block body  %}
+	<header>
+		<h1>{{post.title}}</h1>
+	</header>
+	<main>
+		<nav class="breadcrumbs" aria-label="breadcrumbs">
+			<ul>
+				<li><a href="{{common.base_url}}">Home</a></li>
+				<li><a href="{{common.base_url}}{{post.post_date.year()}}">{{post.post_date.year()}}</a></li>
+				<li><a href="{{common.base_url}}{{post.post_date.year()}}/{{post.post_date.month()}}">{{post.post_date.month()}}</a></li>
+			</ul>
+		</nav>
+		{% call macros::format_post(post) %}
+	</main>
+{% endblock %}
