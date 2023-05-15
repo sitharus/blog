@@ -61,11 +61,14 @@ pub async fn new_post(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
         let invalid_chars = Regex::new(r"[^a-z0-9_-]+")?;
         let mut initial_slug = req.title.clone();
         initial_slug.make_ascii_lowercase();
-        let slug = invalid_chars.replace_all(&initial_slug, " ");
+        let slug = invalid_chars
+            .replace_all(&initial_slug, " ")
+            .trim()
+            .replace(" ", "_");
         let final_slug: &str = &slug.to_owned();
         let result = sqlx::query!("INSERT INTO posts(author_id, post_date, updated_date, url_slug, title, body) VALUES($1, current_timestamp, current_timestamp, $2, $3, $4)",
 					 user_id,
-					 final_slug.trim(),
+					 final_slug,
 					 req.title,
 					 req.body
 		).execute(&mut connection).await?;
