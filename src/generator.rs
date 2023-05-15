@@ -67,11 +67,30 @@ struct YearIndexPage<'a> {
     date: &'a OffsetDateTime,
 }
 
+#[derive(Template)]
+#[template(path = "generated/feed.xml")]
+struct RssFeed<'a> {
+    common: &'a CommonData,
+    posts: &'a [HydratedPost],
+    date: OffsetDateTime,
+}
+
+#[derive(Template)]
+#[template(path = "generated/atom.xml")]
+struct AtomFeed<'a> {
+    common: &'a CommonData,
+    posts: &'a [HydratedPost],
+    date: OffsetDateTime,
+}
+
 mod filters {
     use super::{CommonData, HydratedPost};
     use ordinal::Ordinal;
     use time::{
-        format_description::{self, well_known::Rfc3339},
+        format_description::{
+            self,
+            well_known::{Rfc2822, Rfc3339},
+        },
         OffsetDateTime,
     };
 
@@ -97,6 +116,12 @@ mod filters {
     pub fn format_rfc3339_date(date_time: &OffsetDateTime) -> ::askama::Result<String> {
         date_time
             .format(&Rfc3339)
+            .map_err(|e| ::askama::Error::Custom(e.into()))
+    }
+
+    pub fn format_rfc2822_date(date_time: &OffsetDateTime) -> ::askama::Result<String> {
+        date_time
+            .format(&Rfc2822)
             .map_err(|e| ::askama::Error::Custom(e.into()))
     }
 
@@ -200,10 +225,55 @@ ORDER BY post_date DESC"
 
     regenerate_month_index_pages(&output_path, &posts, &common).await?;
     regenerate_year_index_pages(&output_path, &posts, &common).await?;
+    regenerate_rss_feed(&output_path, &posts, &common).await?;
+    regenerate_atom_feed(&output_path, &posts, &common).await?;
 
     Ok(redirect_response("dashboard"))
 }
 
+async fn regenerate_rss_feed(
+    output_path: &String,
+    posts: &Vec<HydratedPost>,
+    common: &CommonData,
+) -> anyhow::Result<()> {
+    let max = ::std::cmp::min(posts.len(), 10);
+    let posts_in_feed = posts
+        .get(0..max)
+        .ok_or(anyhow!("Failed to get posts for feed"))?;
+
+    let feed = RssFeed {
+        common,
+        posts: posts_in_feed,
+        date: OffsetDateTime::now_utc(),
+    };
+    let mut file = File::create(format!("{}/feed.rss", output_path))?;
+    let rendered = feed.render()?;
+    write!(&mut file, "{}", rendered)?;
+
+    Ok(())
+}
+
+async fn regenerate_atom_feed(
+    output_path: &String,
+    posts: &Vec<HydratedPost>,
+    common: &CommonData,
+) -> anyhow::Result<()> {
+    let max = ::std::cmp::min(posts.len(), 10);
+    let posts_in_feed = posts
+        .get(0..max)
+        .ok_or(anyhow!("Failed to get posts for feed"))?;
+
+    let feed = AtomFeed {
+        common,
+        posts: posts_in_feed,
+        date: OffsetDateTime::now_utc(),
+    };
+    let mut file = File::create(format!("{}/feed.atom", output_path))?;
+    let rendered = feed.render()?;
+    write!(&mut file, "{}", rendered)?;
+
+    Ok(())
+}
 async fn regenerate_month_index_pages(
     output_path: &String,
     posts: &Vec<HydratedPost>,

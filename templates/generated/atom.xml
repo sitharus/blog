@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+	<title>{{common.blog_name}}</title>
+	<link href="{{common.base_url}}/feed.atom" rel="self" />
+	<link href="{{common.base_url}}" />
+	<id>{{common.base_url}}</id>
+	<updated>{{date|format_rfc3339_date}}</updated>
+
+
+	{% for post in posts %}
+	<entry>
+		<title>{{post.title}}</title>
+		<link rel="alternate" type="text/html" href="{{post|posturl(common)}}"/>
+		<id>{{post|posturl(common)}}</id>
+        <published>{{post.post_date|format_rfc3339_date}}</published>
+		<updated>{{post.post_date|format_rfc3339_date}}</updated>
+		<content type="html">
+			{{post.body.clone()|markdown|escape}}
+		</content>
+		<author>
+			<name>{%- match post.author_name -%}
+				{%- when Some(name) %}{{name}}
+				{%- when None -%}
+				{%- endmatch -%}</name>
+		</author>
+	</entry>
+	{% endfor %}
+
+</feed>

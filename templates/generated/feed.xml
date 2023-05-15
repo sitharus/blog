@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<rss version="2.0">
+	<title>{{common.blog_name}}</title>
+	<link>{{common.base_url}}</link>
+	<description></description>
+	<generator>A tangle of Rust</generator>
+	<pubDate>{{date|format_rfc2822_date}}</pubDate>
+	<ttl>1440</ttl>
+
+	{% for post in posts %}
+		<item>
+			<title>{{post.title}}</title>
+			<link>{{post|posturl(common)}}</link>
+			<pubDate>{{post.post_date|format_rfc2822_date}}</pubDate>
+			<description>{{post.body.clone()|markdown|escape}}</description>
+		</item>
+	{% endfor %}
+
+</rss>
