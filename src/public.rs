@@ -14,7 +14,9 @@ struct Http400 {}
 #[template(path = "400.html")]
 struct Http404 {}
 
-async fn comment_form() -> anyhow::Result<cgi::Response> {}
+async fn comment_form() -> anyhow::Result<cgi::Response> {
+    Ok(cgi::string_response(200, "test"))
+}
 
 async fn process(request: &cgi::Request, query_string: &str) -> anyhow::Result<cgi::Response> {
     let query: HashMap<String, String> = utils::parse_query_string(query_string)?;

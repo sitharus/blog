@@ -1,17 +1,14 @@
-use time::{format_description, Date, OffsetDateTime};
+use chrono::{offset::Utc, DateTime, Datelike, NaiveDate};
 
-pub fn format_long_datetime(date_time: &OffsetDateTime) -> ::askama::Result<String> {
-    let format = format_description::parse("[year]-[month]-[day] [hour]:[minute]:[second]")
-        .map_err(|_| ::askama::Error::Custom("".into()))?;
-    date_time
-        .format(&format)
-        .map_err(|e| ::askama::Error::Custom(e.into()))
+pub fn format_long_datetime(date_time: &DateTime<Utc>) -> ::askama::Result<String> {
+    Ok(date_time.format("%Y-%M-%d %H:%m:%s").to_string())
 }
 
-pub fn format_long_date(date_time: &Date) -> ::askama::Result<String> {
-    let format = format_description::parse("[year]-[month]-[day]")
-        .map_err(|_| ::askama::Error::Custom("".into()))?;
-    date_time
-        .format(&format)
-        .map_err(|e| ::askama::Error::Custom(e.into()))
+pub fn format_long_date(date_time: &NaiveDate) -> ::askama::Result<String> {
+    Ok(format!(
+        "{}-{}-{}",
+        date_time.year(),
+        date_time.month(),
+        date_time.day()
+    ))
 }

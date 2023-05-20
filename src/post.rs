@@ -14,17 +14,17 @@ use super::session;
 use anyhow::anyhow;
 use askama::Template;
 use cgi;
+use chrono::{offset::Utc, DateTime, NaiveDate};
 use regex::Regex;
 use serde::Deserialize;
 use sqlx::{query, query_as};
-use time::{Date, OffsetDateTime};
 
 #[derive(Template)]
 #[template(path = "new_post.html")]
 struct NewPost<'a> {
     title: &'a str,
     body: &'a str,
-    date: &'a Date,
+    date: &'a NaiveDate,
     selected_menu_item: AdminMenuPages,
     status: PostStatus,
 }
@@ -34,7 +34,7 @@ struct NewPost<'a> {
 struct EditPost<'a> {
     title: &'a str,
     body: &'a str,
-    date: &'a Date,
+    date: &'a NaiveDate,
     selected_menu_item: AdminMenuPages,
     status: PostStatus,
 }
@@ -43,7 +43,7 @@ struct EditPost<'a> {
 struct NewPostRequest {
     title: String,
     body: String,
-    date: Date,
+    date: NaiveDate,
     status: PostStatus,
 }
 
@@ -107,7 +107,7 @@ VALUES($1, $6, current_timestamp, current_timestamp, $5, $2, $3, $4)"#,
         body: "",
         selected_menu_item: AdminMenuPages::NewPost,
         status: PostStatus::Draft,
-        date: &OffsetDateTime::now_utc().date(),
+        date: &Utc::now().date_naive(),
     };
     render_html(content)
 }

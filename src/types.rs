@@ -1,3 +1,4 @@
+use chrono::{offset::Utc, DateTime};
 use core::fmt;
 
 #[derive(serde::Deserialize, sqlx::Type, std::fmt::Debug, PartialEq)]
@@ -11,9 +12,9 @@ pub enum PostStatus {
 pub struct Post {
     pub id: i32,
     pub author_id: i32,
-    pub post_date: time::Date,
-    pub created_date: time::OffsetDateTime,
-    pub updated_date: time::OffsetDateTime,
+    pub post_date: chrono::NaiveDate,
+    pub created_date: DateTime<Utc>,
+    pub updated_date: DateTime<Utc>,
     pub state: PostStatus,
     pub url_slug: String,
     pub title: String,

@@ -1,14 +1,14 @@
 use anyhow::anyhow;
+use chrono::{naive::Days, offset::Utc, DateTime};
 use serde::Deserialize;
 use serde_querystring::{from_str, ParseMode};
 use sqlx::postgres::PgConnection;
-use time::ext::NumericalDuration;
 use uuid::Uuid;
 
 pub struct Session {
     pub id: Uuid,
     pub user_id: i32,
-    pub expiry: time::OffsetDateTime,
+    pub expiry: DateTime<Utc>,
 }
 
 #[derive(Debug)]
@@ -59,7 +59,7 @@ pub async fn session_id(
                         sqlx::query_as!(Session, "SELECT * FROM session WHERE id=$1", session_id)
                             .fetch_one(connection)
                             .await?;
-                    let now = time::OffsetDateTime::now_utc();
+                    let now = Utc::now();
                     if saved_session.expiry < now {
                         Err(anyhow!(SessionError::Expired))
                     } else {
@@ -79,7 +79,7 @@ pub async fn set_session_and_redirect(
     destination: &str,
 ) -> anyhow::Result<cgi::Response> {
     let new_session_id = Uuid::new_v4();
-    let session_expiry = time::OffsetDateTime::now_utc().checked_add(2.days());
+    let session_expiry = Utc::now().checked_add_days(Days::new(2));
     sqlx::query!(
         "INSERT INTO session(id, user_id, expiry) VALUES($1, $2, $3)",
         new_session_id,

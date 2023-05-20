@@ -5,16 +5,17 @@ use crate::session;
 use anyhow::anyhow;
 use askama::Template;
 use async_std::fs::create_dir_all;
+use chrono::{offset::Utc, DateTime, Datelike, Month, NaiveDate};
 use itertools::Itertools;
+use num_traits::FromPrimitive;
 use sqlx::{query, query_as};
 use std::collections::HashMap;
 use std::env;
 use std::fs::File;
 use std::io::prelude::*;
-use time::{Month, OffsetDateTime};
 
 pub struct HydratedPost {
-    pub post_date: time::Date,
+    pub post_date: NaiveDate,
     pub url_slug: String,
     pub title: String,
     pub body: String,
@@ -55,7 +56,7 @@ struct MonthIndexPage<'a> {
     title: &'a str,
     posts: Vec<&'a HydratedPost>,
     common: &'a CommonData,
-    date: &'a time::Date,
+    date: &'a NaiveDate,
 }
 
 #[derive(Template)]
@@ -64,7 +65,7 @@ struct YearIndexPage<'a> {
     title: &'a str,
     posts_by_month: Vec<(Month, Vec<&'a HydratedPost>)>,
     common: &'a CommonData,
-    date: &'a time::Date,
+    date: &'a NaiveDate,
 }
 
 #[derive(Template)]
@@ -72,7 +73,7 @@ struct YearIndexPage<'a> {
 struct RssFeed<'a> {
     common: &'a CommonData,
     posts: &'a [HydratedPost],
-    date: time::OffsetDateTime,
+    date: DateTime<Utc>,
 }
 
 #[derive(Template)]
@@ -80,66 +81,73 @@ struct RssFeed<'a> {
 struct AtomFeed<'a> {
     common: &'a CommonData,
     posts: &'a [HydratedPost],
-    date: time::OffsetDateTime,
+    date: DateTime<Utc>,
 }
 
 mod filters {
     use super::{CommonData, HydratedPost};
+    use chrono::{offset::Utc, DateTime, Datelike, Month, NaiveDate};
+    use num_traits::FromPrimitive;
     use ordinal::Ordinal;
-    use time::{
-        format_description::{
-            self,
-            well_known::{Rfc2822, Rfc3339},
-        },
-        Date, OffsetDateTime,
-    };
 
     pub fn posturl(post: &HydratedPost, common: &CommonData) -> ::askama::Result<String> {
+        let month = Month::from_u32(post.post_date.month())
+            .ok_or(::askama::Error::Custom("Could not find month".into()))?
+            .name();
         let url = format!(
             "{}{}/{}/{}.html",
             common.base_url,
             post.post_date.year(),
-            post.post_date.month(),
+            month,
             post.url_slug
         );
         Ok(url)
     }
 
-    pub fn format_human_date(date_time: &Date) -> ::askama::Result<String> {
-        let format = format_description::parse("[weekday], [day] [month repr:long] [year]")
-            .map_err(|_| ::askama::Error::Custom("".into()))?;
-        date_time
-            .format(&format)
-            .map_err(|e| ::askama::Error::Custom(e.into()))
+    pub fn month_name(month: u32) -> ::askama::Result<String> {
+        let month = Month::from_u32(month)
+            .ok_or(::askama::Error::Custom("Could not find month".into()))?
+            .name();
+        Ok(String::from(month))
     }
 
-    pub fn format_rfc3339_datetime(date_time: &OffsetDateTime) -> ::askama::Result<String> {
-        date_time
-            .format(&Rfc3339)
-            .map_err(|e| ::askama::Error::Custom(e.into()))
+    pub fn format_human_date(date_time: &NaiveDate) -> ::askama::Result<String> {
+        Ok(date_time.format("%A, %-d %B, %C%y").to_string())
     }
 
-    pub fn format_rfc2822_datetime(date_time: &OffsetDateTime) -> ::askama::Result<String> {
-        date_time
-            .format(&Rfc2822)
-            .map_err(|e| ::askama::Error::Custom(e.into()))
+    pub fn format_rfc3339_datetime(date_time: &DateTime<Utc>) -> ::askama::Result<String> {
+        Ok(date_time.to_rfc3339())
     }
 
-    pub fn format_rfc3339_date(date_time: &Date) -> ::askama::Result<String> {
-        date_time
-            .format(&Rfc3339)
-            .map_err(|e| ::askama::Error::Custom(e.into()))
+    pub fn format_rfc2822_datetime(date_time: &DateTime<Utc>) -> ::askama::Result<String> {
+        Ok(date_time.to_rfc2822())
     }
 
-    pub fn format_rfc2822_date(date_time: &Date) -> ::askama::Result<String> {
-        date_time
-            .format(&Rfc2822)
-            .map_err(|e| ::askama::Error::Custom(e.into()))
+    pub fn format_rfc3339_date(date: &NaiveDate) -> ::askama::Result<String> {
+        date.and_hms_opt(0, 0, 0)
+            .ok_or(::askama::Error::Custom(
+                "Could not find midnight UTC".into(),
+            ))?
+            .and_local_timezone(Utc)
+            .earliest()
+            .ok_or(::askama::Error::Custom("Cannot convert to UTC".into()))
+            .map(|d| d.to_rfc3339())
     }
 
-    pub fn format_weekday(date_time: &Date) -> ::askama::Result<String> {
-        let weekday = date_time.weekday();
-        let day = Ordinal(date_time.day());
+    pub fn format_rfc2822_date(date: &NaiveDate) -> ::askama::Result<String> {
+        date.and_hms_opt(0, 0, 0)
+            .ok_or(::askama::Error::Custom(
+                "Could not find midnight UTC".into(),
+            ))?
+            .and_local_timezone(Utc)
+            .earliest()
+            .ok_or(::askama::Error::Custom("Cannot convert to UTC".into()))
+            .map(|d| d.to_rfc2822())
+    }
+
+    pub fn format_weekday(date: &NaiveDate) -> ::askama::Result<String> {
+        let weekday = date.weekday();
+        let day = Ordinal(date.day());
         Ok(format!("{} {}", weekday, day))
     }
 }
@@ -257,7 +265,7 @@ async fn regenerate_rss_feed(
     let feed = RssFeed {
         common,
         posts: posts_in_feed,
-        date: OffsetDateTime::now_utc(),
+        date: Utc::now(),
     };
     let mut file = File::create(format!("{}/feed.rss", output_path))?;
     let rendered = feed.render()?;
@@ -279,7 +287,7 @@ async fn regenerate_atom_feed(
     let feed = AtomFeed {
         common,
         posts: posts_in_feed,
-        date: OffsetDateTime::now_utc(),
+        date: Utc::now(),
     };
     let mut file = File::create(format!("{}/feed.atom", output_path))?;
     let rendered = feed.render()?;
@@ -292,12 +300,10 @@ async fn regenerate_month_index_pages(
     posts: &Vec<HydratedPost>,
     common: &CommonData,
 ) -> anyhow::Result<()> {
-    let mut current_date = posts
-        .last()
-        .ok_or(anyhow!("No posts!"))?
-        .post_date
-        .replace_day(1)?;
-    let now = time::OffsetDateTime::now_utc().date();
+    let post_date = posts.last().ok_or(anyhow!("No posts!"))?.post_date;
+
+    let mut current_date = NaiveDate::from_ymd_opt(post_date.year(), post_date.month(), 1).unwrap();
+    let now = Utc::now().date_naive();
 
     while current_date <= now {
         let index_dir = format!(
@@ -328,8 +334,9 @@ async fn regenerate_month_index_pages(
         let rendered = page.render()?;
         write!(&mut file, "{}", rendered)?;
 
-        let days_to_add = time::util::days_in_year_month(current_date.year(), current_date.month());
-        current_date = current_date + time::Duration::days(days_to_add.into());
+        current_date = current_date
+            .checked_add_months(chrono::Months::new(1))
+            .unwrap();
     }
 
     Ok(())
@@ -340,12 +347,10 @@ async fn regenerate_year_index_pages(
     posts: &Vec<HydratedPost>,
     common: &CommonData,
 ) -> anyhow::Result<()> {
-    let mut current_date = posts
-        .last()
-        .ok_or(anyhow!("No posts!"))?
-        .post_date
-        .replace_day(1)?;
-    let now = time::OffsetDateTime::now_utc().date();
+    let post_date = posts.last().ok_or(anyhow!("No posts!"))?.post_date;
+
+    let mut current_date = NaiveDate::from_ymd_opt(post_date.year(), 1, 1).unwrap();
+    let now = Utc::now().date_naive();
 
     while current_date <= now {
         let index_dir = format!("{}/{}", output_path, current_date.year());
@@ -358,7 +363,10 @@ async fn regenerate_year_index_pages(
             .collect();
         month_posts.sort_by(|a, b| a.post_date.cmp(&b.post_date));
         let mut grouped = Vec::new();
-        for (key, group) in &month_posts.into_iter().group_by(|p| p.post_date.month()) {
+        for (key, group) in &month_posts
+            .into_iter()
+            .group_by(|p| Month::from_u32(p.post_date.month()).unwrap())
+        {
             grouped.push((key, group.collect()));
         }
 
@@ -373,8 +381,9 @@ async fn regenerate_year_index_pages(
         let rendered = page.render()?;
         write!(&mut file, "{}", rendered)?;
 
-        let days_to_add = time::util::days_in_year(current_date.year());
-        current_date = current_date + time::Duration::days(days_to_add.into());
+        current_date = current_date
+            .checked_add_months(chrono::Months::new(12))
+            .unwrap();
     }
 
     Ok(())
