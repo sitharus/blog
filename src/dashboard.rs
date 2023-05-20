@@ -1,4 +1,4 @@
-use crate::types::{AdminMenuPages, Post};
+use crate::types::{AdminMenuPages, Post, PostStatus};
 use crate::utils::render_html;
 use askama::Template;
 use cgi;
@@ -21,7 +21,12 @@ pub async fn render(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
 
     let recent_posts = query_as!(
         Post,
-        "SELECT * FROM posts ORDER BY post_date DESC FETCH FIRST 10 ROWS ONLY"
+        r#"
+SELECT id, author_id, post_date, created_date, updated_date, state as "state: PostStatus",
+       url_slug, title, body
+FROM posts
+ORDER BY post_date DESC
+FETCH FIRST 10 ROWS ONLY"#
     )
     .fetch_all(&mut connection)
     .await?;

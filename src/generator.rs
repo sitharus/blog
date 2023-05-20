@@ -14,7 +14,7 @@ use std::io::prelude::*;
 use time::{Month, OffsetDateTime};
 
 pub struct HydratedPost {
-    pub post_date: time::OffsetDateTime,
+    pub post_date: time::Date,
     pub url_slug: String,
     pub title: String,
     pub body: String,
@@ -55,7 +55,7 @@ struct MonthIndexPage<'a> {
     title: &'a str,
     posts: Vec<&'a HydratedPost>,
     common: &'a CommonData,
-    date: &'a OffsetDateTime,
+    date: &'a time::Date,
 }
 
 #[derive(Template)]
@@ -64,7 +64,7 @@ struct YearIndexPage<'a> {
     title: &'a str,
     posts_by_month: Vec<(Month, Vec<&'a HydratedPost>)>,
     common: &'a CommonData,
-    date: &'a OffsetDateTime,
+    date: &'a time::Date,
 }
 
 #[derive(Template)]
@@ -72,7 +72,7 @@ struct YearIndexPage<'a> {
 struct RssFeed<'a> {
     common: &'a CommonData,
     posts: &'a [HydratedPost],
-    date: OffsetDateTime,
+    date: time::OffsetDateTime,
 }
 
 #[derive(Template)]
@@ -80,7 +80,7 @@ struct RssFeed<'a> {
 struct AtomFeed<'a> {
     common: &'a CommonData,
     posts: &'a [HydratedPost],
-    date: OffsetDateTime,
+    date: time::OffsetDateTime,
 }
 
 mod filters {
@@ -91,7 +91,7 @@ mod filters {
             self,
             well_known::{Rfc2822, Rfc3339},
         },
-        OffsetDateTime,
+        Date, OffsetDateTime,
     };
 
     pub fn posturl(post: &HydratedPost, common: &CommonData) -> ::askama::Result<String> {
@@ -105,7 +105,7 @@ mod filters {
         Ok(url)
     }
 
-    pub fn format_human_date(date_time: &OffsetDateTime) -> ::askama::Result<String> {
+    pub fn format_human_date(date_time: &Date) -> ::askama::Result<String> {
         let format = format_description::parse("[weekday], [day] [month repr:long] [year]")
             .map_err(|_| ::askama::Error::Custom("".into()))?;
         date_time
@@ -113,19 +113,31 @@ mod filters {
             .map_err(|e| ::askama::Error::Custom(e.into()))
     }
 
-    pub fn format_rfc3339_date(date_time: &OffsetDateTime) -> ::askama::Result<String> {
+    pub fn format_rfc3339_datetime(date_time: &OffsetDateTime) -> ::askama::Result<String> {
         date_time
             .format(&Rfc3339)
             .map_err(|e| ::askama::Error::Custom(e.into()))
     }
 
-    pub fn format_rfc2822_date(date_time: &OffsetDateTime) -> ::askama::Result<String> {
+    pub fn format_rfc2822_datetime(date_time: &OffsetDateTime) -> ::askama::Result<String> {
         date_time
             .format(&Rfc2822)
             .map_err(|e| ::askama::Error::Custom(e.into()))
     }
 
-    pub fn format_weekday(date_time: &OffsetDateTime) -> ::askama::Result<String> {
+    pub fn format_rfc3339_date(date_time: &Date) -> ::askama::Result<String> {
+        date_time
+            .format(&Rfc3339)
+            .map_err(|e| ::askama::Error::Custom(e.into()))
+    }
+
+    pub fn format_rfc2822_date(date_time: &Date) -> ::askama::Result<String> {
+        date_time
+            .format(&Rfc2822)
+            .map_err(|e| ::askama::Error::Custom(e.into()))
+    }
+
+    pub fn format_weekday(date_time: &Date) -> ::askama::Result<String> {
         let weekday = date_time.weekday();
         let day = Ordinal(date_time.day());
         Ok(format!("{} {}", weekday, day))
@@ -158,6 +170,7 @@ SELECT post_date, url_slug, title, body, users.display_name AS author_name
 FROM posts
 INNER JOIN users
 ON users.id = posts.author_id
+WHERE state = 'published'
 ORDER BY post_date DESC"
     )
     .fetch_all(&mut connection)
@@ -284,7 +297,7 @@ async fn regenerate_month_index_pages(
         .ok_or(anyhow!("No posts!"))?
         .post_date
         .replace_day(1)?;
-    let now = time::OffsetDateTime::now_utc();
+    let now = time::OffsetDateTime::now_utc().date();
 
     while current_date <= now {
         let index_dir = format!(
@@ -332,7 +345,7 @@ async fn regenerate_year_index_pages(
         .ok_or(anyhow!("No posts!"))?
         .post_date
         .replace_day(1)?;
-    let now = time::OffsetDateTime::now_utc();
+    let now = time::OffsetDateTime::now_utc().date();
 
     while current_date <= now {
         let index_dir = format!("{}/{}", output_path, current_date.year());

@@ -6,7 +6,7 @@
 	<link href="{{common.base_url}}feed.atom" rel="self" />
 	<link href="{{common.base_url}}" />
 	<id>{{common.base_url}}</id>
-	<updated>{{date|format_rfc3339_date}}</updated>
+	<updated>{{date|format_rfc3339_datetime}}</updated>
 
 
 	{% for post in posts %}

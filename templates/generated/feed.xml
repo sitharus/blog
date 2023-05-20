@@ -5,7 +5,7 @@
 	<link>{{common.base_url}}</link>
 	<description></description>
 	<generator>A tangle of Rust</generator>
-	<pubDate>{{date|format_rfc2822_date}}</pubDate>
+	<pubDate>{{date|format_rfc2822_datetime}}</pubDate>
 	<ttl>1440</ttl>
 	{% for post in posts %}
 	<item>

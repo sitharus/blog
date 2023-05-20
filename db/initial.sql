@@ -21,3 +21,9 @@ CREATE TABLE posts (
 	   body text not null,
 	   unique(url_slug)
 );
+
+
+CREATE TABLE migrations (
+	   name varchar primary key,
+	   date_applied timestamp with time zone not null
+);

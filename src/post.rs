@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::types::AdminMenuPages;
-use crate::types::Post;
+use crate::types::{Post, PostStatus};
 use crate::utils::parse_into;
 use crate::utils::post_body;
 use crate::utils::render_html;
@@ -17,13 +17,16 @@ use cgi;
 use regex::Regex;
 use serde::Deserialize;
 use sqlx::{query, query_as};
+use time::{Date, OffsetDateTime};
 
 #[derive(Template)]
 #[template(path = "new_post.html")]
 struct NewPost<'a> {
     title: &'a str,
     body: &'a str,
+    date: &'a Date,
     selected_menu_item: AdminMenuPages,
+    status: PostStatus,
 }
 
 #[derive(Template)]
@@ -31,13 +34,17 @@ struct NewPost<'a> {
 struct EditPost<'a> {
     title: &'a str,
     body: &'a str,
+    date: &'a Date,
     selected_menu_item: AdminMenuPages,
+    status: PostStatus,
 }
 
 #[derive(Deserialize)]
 struct NewPostRequest {
     title: String,
     body: String,
+    date: Date,
+    status: PostStatus,
 }
 
 #[derive(Template)]
@@ -66,12 +73,21 @@ pub async fn new_post(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
             .trim()
             .replace(" ", "_");
         let final_slug: &str = &slug.to_owned();
-        let result = sqlx::query!("INSERT INTO posts(author_id, post_date, updated_date, url_slug, title, body) VALUES($1, current_timestamp, current_timestamp, $2, $3, $4)",
-					 user_id,
-					 final_slug,
-					 req.title,
-					 req.body
-		).execute(&mut connection).await?;
+        let result = sqlx::query!(
+            r#"
+INSERT INTO posts(
+    author_id, post_date, created_date, updated_date, state, url_slug, title, body
+)
+VALUES($1, $6, current_timestamp, current_timestamp, $5, $2, $3, $4)"#,
+            user_id,
+            final_slug,
+            req.title,
+            req.body,
+            &req.status as &PostStatus,
+            req.date,
+        )
+        .execute(&mut connection)
+        .await?;
         return if result.rows_affected() == 1 {
             Ok(response::redirect_response("dashboard"))
         } else {
@@ -79,6 +95,8 @@ pub async fn new_post(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
                 title: req.title.as_str(),
                 body: req.body.as_str(),
                 selected_menu_item: AdminMenuPages::NewPost,
+                status: req.status,
+                date: &req.date,
             };
             render_html(content)
         };
@@ -88,6 +106,8 @@ pub async fn new_post(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
         title: "",
         body: "",
         selected_menu_item: AdminMenuPages::NewPost,
+        status: PostStatus::Draft,
+        date: &OffsetDateTime::now_utc().date(),
     };
     render_html(content)
 }
@@ -105,23 +125,30 @@ pub async fn edit_post(
     if request.method() == "POST" {
         let req: NewPostRequest = post_body(request)?;
         query!(
-            "UPDATE posts SET title=$1, body=$2 WHERE id=$3",
+            "UPDATE posts SET title=$1, body=$2, state=$3, post_date = $4 WHERE id=$5",
             req.title,
             req.body,
+            req.status as PostStatus,
+            req.date,
             id
         )
         .execute(&mut connection)
         .await?;
         render_redirect("posts")
     } else {
-        let post = sqlx::query!("SELECT title, body FROM posts WHERE id = $1", id)
-            .fetch_one(&mut connection)
-            .await?;
+        let post = sqlx::query!(
+            r#"SELECT title, body, state as "state: PostStatus", post_date  FROM posts WHERE id = $1"#,
+            id
+        )
+        .fetch_one(&mut connection)
+        .await?;
 
         let content = EditPost {
             title: &post.title,
             body: &post.body,
             selected_menu_item: AdminMenuPages::Posts,
+            status: post.state,
+            date: &post.post_date,
         };
         render_html(content)
     }
@@ -135,7 +162,7 @@ pub async fn manage_posts(query: HashMap<String, String>) -> anyhow::Result<cgi:
 
     let posts = query_as!(
         Post,
-        "SELECT * FROM posts ORDER BY post_date DESC OFFSET $1 ROWS FETCH NEXT $2 ROWS ONLY",
+        r#"SELECT id, author_id, post_date, created_date, updated_date, state as "state: PostStatus", url_slug, title, body FROM posts ORDER BY post_date DESC OFFSET $1 ROWS FETCH NEXT $2 ROWS ONLY"#,
         items_per_page * current_page,
         items_per_page
     )
