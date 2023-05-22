@@ -14,6 +14,8 @@ struct Settings {
     selected_menu_item: AdminMenuPages,
     blog_name: String,
     base_url: String,
+    static_base_url: String,
+    comment_cgi_url: String,
 }
 
 pub async fn render(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
@@ -22,7 +24,12 @@ pub async fn render(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
     if request.method() == "POST" {
         let content: HashMap<String, String> = post_body(request)?;
 
-        for setting in ["blog_name", "base_url"] {
+        for setting in [
+            "blog_name",
+            "base_url",
+            "comment_cgi_url",
+            "static_base_url",
+        ] {
             if let Some(value) = content.get(setting) {
                 query!(
                     "INSERT INTO blog_settings VALUES($1, $2) ON CONFLICT (setting_name) DO UPDATE SET value = EXCLUDED.value",
@@ -50,10 +57,20 @@ pub async fn render(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
         .get("base_url")
         .unwrap_or(&String::from(""))
         .to_owned();
+    let static_base_url = settings_lookup
+        .get("static_base_url")
+        .unwrap_or(&String::from("/"))
+        .to_owned();
+    let comment_cgi_url = settings_lookup
+        .get("comment_cgi_url")
+        .unwrap_or(&String::from("/cgi-bin/blog.cgi"))
+        .to_owned();
     let page = Settings {
         selected_menu_item: AdminMenuPages::Settings,
         blog_name,
         base_url,
+        static_base_url,
+        comment_cgi_url,
     };
     Ok(cgi::html_response(200, page.render().unwrap()))
 }

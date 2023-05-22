@@ -1,14 +1,9 @@
-use chrono::{offset::Utc, DateTime, Datelike, NaiveDate};
+use chrono::{offset::Utc, DateTime, NaiveDate};
 
 pub fn format_long_datetime(date_time: &DateTime<Utc>) -> ::askama::Result<String> {
-    Ok(date_time.format("%Y-%M-%d %H:%m:%s").to_string())
+    Ok(date_time.format("%C%y-%M-%d %H:%m").to_string())
 }
 
 pub fn format_long_date(date_time: &NaiveDate) -> ::askama::Result<String> {
-    Ok(format!(
-        "{}-{}-{}",
-        date_time.year(),
-        date_time.month(),
-        date_time.day()
-    ))
+    Ok(date_time.format("%-d %B %C%y").to_string())
 }

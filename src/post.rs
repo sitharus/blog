@@ -14,7 +14,7 @@ use super::session;
 use anyhow::anyhow;
 use askama::Template;
 use cgi;
-use chrono::{offset::Utc, DateTime, NaiveDate};
+use chrono::{offset::Utc, NaiveDate};
 use regex::Regex;
 use serde::Deserialize;
 use sqlx::{query, query_as};

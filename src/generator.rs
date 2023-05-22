@@ -15,11 +15,19 @@ use std::fs::File;
 use std::io::prelude::*;
 
 pub struct HydratedPost {
+    pub id: i32,
     pub post_date: NaiveDate,
     pub url_slug: String,
     pub title: String,
     pub body: String,
     pub author_name: Option<String>,
+    pub comment_count: Option<i64>,
+}
+
+pub struct HydratedComment {
+    author_name: String,
+    created_date: DateTime<Utc>,
+    post_body: String,
 }
 
 pub struct Link {
@@ -29,6 +37,8 @@ pub struct Link {
 
 pub struct CommonData {
     base_url: String,
+    static_base_url: String,
+    comment_cgi_url: String,
     blog_name: String,
     archive_years: Vec<i32>,
     links: Vec<Link>,
@@ -40,6 +50,7 @@ struct PostPage<'a> {
     title: &'a String,
     post: &'a HydratedPost,
     common: &'a CommonData,
+    comments: Vec<HydratedComment>,
 }
 
 #[derive(Template)]
@@ -115,6 +126,10 @@ mod filters {
         Ok(date_time.format("%A, %-d %B, %C%y").to_string())
     }
 
+    pub fn format_human_datetime(date_time: &DateTime<Utc>) -> ::askama::Result<String> {
+        Ok(date_time.format("%A, %-d %B, %C%y at %-I:%m%P").to_string())
+    }
+
     pub fn format_rfc3339_datetime(date_time: &DateTime<Utc>) -> ::askama::Result<String> {
         Ok(date_time.to_rfc3339())
     }
@@ -143,6 +158,13 @@ mod filters {
             .earliest()
             .ok_or(::askama::Error::Custom("Cannot convert to UTC".into()))
             .map(|d| d.to_rfc2822())
+    }
+
+    pub fn pluralise(base: &str, count: &Option<i64>) -> ::askama::Result<String> {
+        match count {
+            Some(1) => Ok(base.to_string()),
+            _ => Ok(format!("{}s", base)),
+        }
     }
 
     pub fn format_weekday(date: &NaiveDate) -> ::askama::Result<String> {
@@ -174,7 +196,7 @@ pub async fn regenerate_blog(request: &cgi::Request) -> anyhow::Result<cgi::Resp
     let posts = query_as!(
         HydratedPost,
         "
-SELECT post_date, url_slug, title, body, users.display_name AS author_name
+SELECT posts.id as id, post_date, url_slug, title, body, users.display_name AS author_name, (SELECT COUNT(*) FROM comments WHERE comments.post_id = posts.id) AS comment_count
 FROM posts
 INNER JOIN users
 ON users.id = posts.author_id
@@ -189,7 +211,7 @@ ORDER BY post_date DESC"
     }
 
     let earliest_year = posts.last().ok_or(anyhow!("No posts!"))?.post_date.year();
-    let current_year = time::OffsetDateTime::now_utc().year();
+    let current_year = Utc::now().year();
     let mut years: Vec<i32> = (earliest_year..=current_year).collect();
     years.reverse();
 
@@ -202,28 +224,19 @@ ORDER BY post_date DESC"
             .get("blog_name")
             .ok_or(anyhow!("No blog name set"))?
             .to_owned(),
+        static_base_url: settings
+            .get("static_base_url")
+            .ok_or(anyhow!("No base URL set"))?
+            .to_owned(),
+        comment_cgi_url: settings
+            .get("comment_cgi_url")
+            .ok_or(anyhow!("No CGI url set"))?
+            .to_owned(),
         archive_years: years,
         links,
     };
     for post in &posts {
-        let dir = format!(
-            "{}/{}/{}",
-            output_path,
-            post.post_date.year(),
-            post.post_date.month(),
-        );
-        let post_path = format!("{}/{}.html", dir, post.url_slug);
-        create_dir_all(dir).await?;
-
-        let mut file = File::create(post_path)?;
-        let post_page = PostPage {
-            title: &post.title,
-            post,
-            common: &common,
-        };
-
-        let rendered = post_page.render()?;
-        write!(&mut file, "{}", rendered)?;
+        generate_post_page(&output_path, post, &common, &mut connection).await?;
     }
 
     for (pos, chunk) in posts.chunks(10).enumerate() {
@@ -250,6 +263,34 @@ ORDER BY post_date DESC"
     regenerate_atom_feed(&output_path, &posts, &common).await?;
 
     Ok(redirect_response("dashboard"))
+}
+
+async fn generate_post_page(
+    output_path: &String,
+    post: &HydratedPost,
+    common: &CommonData,
+    connection: &mut sqlx::PgConnection,
+) -> anyhow::Result<()> {
+    let comments = query_as!(HydratedComment, "SELECT author_name, post_body, created_date FROM comments WHERE post_id=$1 AND status = 'approved' ORDER BY created_date ASC", post.id).fetch_all(connection).await?;
+
+    let month_name = Month::from_u32(post.post_date.month())
+        .ok_or(anyhow!("Bad month number"))?
+        .name();
+    let dir = format!("{}/{}/{}", output_path, post.post_date.year(), month_name);
+    let post_path = format!("{}/{}.html", dir, post.url_slug);
+    create_dir_all(dir).await?;
+
+    let mut file = File::create(post_path)?;
+    let post_page = PostPage {
+        title: &post.title,
+        post,
+        common: &common,
+        comments,
+    };
+
+    let rendered = post_page.render()?;
+    write!(&mut file, "{}", rendered)?;
+    Ok(())
 }
 
 async fn regenerate_rss_feed(
@@ -306,12 +347,10 @@ async fn regenerate_month_index_pages(
     let now = Utc::now().date_naive();
 
     while current_date <= now {
-        let index_dir = format!(
-            "{}/{}/{}",
-            output_path,
-            current_date.year(),
-            current_date.month()
-        );
+        let month_name = Month::from_u32(current_date.month())
+            .ok_or(anyhow!("Bad month number"))?
+            .name();
+        let index_dir = format!("{}/{}/{}", output_path, current_date.year(), month_name);
 
         let mut file = File::create(format!("{}/{}", index_dir, "index.html"))?;
         let mut month_posts: Vec<&HydratedPost> = posts

@@ -13,6 +13,7 @@
 		{{ post.body.clone()|markdown }}
 
 		<footer>
+			<a href="{{post|posturl(common)}}#comments"> {{post.comment_count.unwrap_or(0)}} {{"comment"|pluralise(post.comment_count)}}
 			<a href="{{post|posturl(common)}}">Permalink</a>
 		</footer>
 	</article>

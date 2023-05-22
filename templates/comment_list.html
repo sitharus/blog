@@ -1,0 +1,43 @@
+
+{% extends "base.html" %}
+
+{% block content %}
+	<h1>Pending Moderation</h1>
+
+	<table>
+		<thead>
+			<tr>
+				<th>Post title</th>
+				<th>Author</th>
+				<th>Email</th>
+				<th>Posted</th>
+				<th></th>
+			</tr>
+		</thead>
+		<tbody>
+			{% for row in comments %}
+				<tr>
+					<td>{{row.post_title}}</td>
+					<td>{{row.author_name}}</td>
+					<td>{{row.author_email}}</td>
+					<td>{{row.created_date|format_long_datetime}}</td>
+					<td>
+						<form action="?action=moderate_comment" method="POST" class="action-links">
+							<input type="hidden" name="comment_id" value="{{row.id}}">
+							<button type="submit" name="action" value="approve">Approve</button>
+							<button type="submit" name="action" value="reject">Reject</button>
+
+						</form>
+					</td>
+
+				</tr>
+				<tr>
+					<td colspan="5">
+						{{row.body|e|linebreaks|safe}}
+					</td>
+				</tr>
+
+			{% endfor %}
+		</tbody>
+	</table>
+{% endblock %}

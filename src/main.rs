@@ -9,6 +9,7 @@ use session::SessionError;
 use utils::{parse_query_string, render_html, render_html_status};
 
 mod account;
+mod comments;
 mod dashboard;
 mod database;
 mod filters;
@@ -123,6 +124,8 @@ async fn process(request: &cgi::Request, query_string: &str) -> anyhow::Result<c
             "links" => links::render(request).await,
             "posts" => post::manage_posts(query).await,
             "edit_post" => post::edit_post(request, query).await,
+            "comments" => comments::comment_list().await,
+            "moderate_comment" => comments::moderate_comment(request).await,
             _ => do_404().await,
         }
     }

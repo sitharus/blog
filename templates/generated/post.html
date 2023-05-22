@@ -9,9 +9,31 @@
 			<ul>
 				<li><a href="{{common.base_url}}">Home</a></li>
 				<li><a href="{{common.base_url}}{{post.post_date.year()}}">{{post.post_date.year()}}</a></li>
-				<li><a href="{{common.base_url}}{{post.post_date.year()}}/{{post.post_date.month()|month_name}}">{{post.post_date.month()}}</a></li>
+				<li><a href="{{common.base_url}}{{post.post_date.year()}}/{{post.post_date.month()|month_name}}">{{post.post_date.month()|month_name}}</a></li>
 			</ul>
 		</nav>
 		{% call macros::format_post(post) %}
+
+			<section id="comments">
+				<h1>Comments</h1>
+
+				{% for comment in comments %}
+
+					<section class="comment">
+						<p>by {{comment.author_name}} on {{comment.created_date|format_human_datetime}}</p>
+						<div>
+							{{comment.post_body|e|linebreaks|safe}}
+						</div>
+					</section>
+				{% endfor %}
+
+				<details>
+					<summary>
+						<h1>Post a comment</h1>
+					</summary>
+					<iframe src="{{common.comment_cgi_url}}?action=comment_form&post_id={{post.id}}" class="comment-frame" loading="lazy"></iframe>
+				</details>
+			</section>
+				
 	</main>
 {% endblock %}

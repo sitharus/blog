@@ -1,0 +1,26 @@
+<html>
+	<head>
+		<link rel="stylesheet" href="{{static_base_url}}/blog.css" />
+	</head>
+	<body class="comment">
+<form method="POST" action="{{comment_cgi_url}}?action=comment">
+	<input type="hidden" name="unique_id" value="{{token}}">
+	<input type="hidden" name="post_id" value="{{post_id}}">
+	<p>
+		All comments are moderated before posting on the site. A valid
+		email address is required but this is not posted on the site.
+	</p>
+	<label>Name
+		<input type="text" name="name">
+	</label>
+	<label>Email <sub>will not be published</sub>
+
+		<input type="text" name="email">
+	</label>
+	<label for="comment">Comment. New lines preserved, no other formatting.</label>
+	<textarea name="comment"></textarea>
+
+	<button type="submit">Send comment</button>
+</form>
+	</body>
+</html>

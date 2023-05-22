@@ -9,6 +9,15 @@ pub enum PostStatus {
     Published,
 }
 
+#[derive(serde::Deserialize, sqlx::Type, std::fmt::Debug, PartialEq)]
+#[sqlx(type_name = "comment_status")] // only for PostgreSQL to match a type definition
+#[sqlx(rename_all = "lowercase")]
+pub enum CommentStatus {
+    Pending,
+    Approved,
+    Spam,
+}
+
 pub struct Post {
     pub id: i32,
     pub author_id: i32,
@@ -28,6 +37,7 @@ pub enum AdminMenuPages {
     NewPost,
     Settings,
     Links,
+    Comments,
 }
 impl fmt::Display for AdminMenuPages {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -38,6 +48,7 @@ impl fmt::Display for AdminMenuPages {
             AdminMenuPages::NewPost => write!(f, "newpost"),
             AdminMenuPages::Settings => write!(f, "settings"),
             AdminMenuPages::Links => write!(f, "links"),
+            AdminMenuPages::Comments => write!(f, "comments"),
         }
     }
 }

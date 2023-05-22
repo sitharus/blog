@@ -1,9 +1,12 @@
 use std::collections::HashMap;
 
+use anyhow::anyhow;
 use askama::Template;
 use async_std::task;
 use cgi;
+use sqlx::query;
 
+mod database;
 mod utils;
 
 #[derive(Template)]
@@ -14,8 +17,76 @@ struct Http400 {}
 #[template(path = "400.html")]
 struct Http404 {}
 
-async fn comment_form() -> anyhow::Result<cgi::Response> {
-    Ok(cgi::string_response(200, "test"))
+#[derive(Template)]
+#[template(path = "generated/comment_form.html")]
+struct CommentForm {
+    token: String,
+    post_id: i32,
+    comment_cgi_url: String,
+    static_base_url: String,
+}
+#[derive(Template)]
+#[template(path = "generated/comment_posted.html")]
+struct CommentPosted {
+    static_base_url: String,
+}
+
+#[derive(serde::Deserialize)]
+struct NewComment {
+    post_id: i32,
+    unique_id: String,
+    name: String,
+    email: String,
+    comment: String,
+}
+
+async fn comment_form(query: HashMap<String, String>) -> anyhow::Result<cgi::Response> {
+    let post_id_str = query.get("post_id").ok_or(anyhow!("No post id"))?;
+    let post_id: i32 = post_id_str.parse()?;
+    let mut conn = database::connect_db().await?;
+    let settings_data = query!("SELECT setting_name, value FROM blog_settings")
+        .fetch_all(&mut conn)
+        .await?;
+    let settings: HashMap<String, String> =
+        HashMap::from_iter(settings_data.into_iter().map(|r| (r.setting_name, r.value)));
+
+    query!("SELECT id FROM posts WHERE id=$1", post_id)
+        .fetch_one(&mut conn)
+        .await?;
+
+    utils::render_html(CommentForm {
+        token: "".into(),
+        post_id,
+        comment_cgi_url: settings.get("comment_cgi_url").unwrap().to_owned(),
+        static_base_url: settings.get("static_base_url").unwrap().to_owned(),
+    })
+}
+
+async fn post_comment(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
+    let body: NewComment = utils::post_body(request)?;
+    let mut conn = database::connect_db().await?;
+
+    query!(
+        "
+INSERT INTO comments (post_id, created_date, author_name, author_email, post_body)
+VALUES($1, CURRENT_TIMESTAMP, $2, $3, $4)
+",
+        body.post_id,
+        body.name,
+        body.email,
+        body.comment
+    )
+    .execute(&mut conn)
+    .await?;
+
+    let static_base_url =
+        query!("SELECT value FROM blog_settings WHERE setting_name='static_base_url'")
+            .fetch_one(&mut conn)
+            .await?;
+
+    utils::render_html(CommentPosted {
+        static_base_url: static_base_url.value,
+    })
 }
 
 async fn process(request: &cgi::Request, query_string: &str) -> anyhow::Result<cgi::Response> {
@@ -24,6 +95,8 @@ async fn process(request: &cgi::Request, query_string: &str) -> anyhow::Result<c
 
     match action {
         Some(str) => match str.as_str() {
+            "comment_form" => comment_form(query).await,
+            "comment" => post_comment(request).await,
             _ => utils::render_html(Http400 {}),
         },
         _ => utils::render_html(Http400 {}),
