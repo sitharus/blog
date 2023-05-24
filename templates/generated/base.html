@@ -6,13 +6,17 @@
 		{% block header %}{% endblock %}
 	</head>
 
+	<nav class="mini">
+		<a href="#mainnav">Navigation</a>
+	</nav>
+
 	<body>
 		{% block body %}{% endblock %}
 	</body>
 	
-	<nav class="sidebar">
+	<nav class="sidebar" id="mainnav">
 		<section>
-			<a href="">Home</a>
+			<a href="{{common.base_url}}">Home</a>
 		</section>
 		<section>
 			<h1>Archives</h1>

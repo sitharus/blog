@@ -362,7 +362,7 @@ async fn regenerate_month_index_pages(
             .collect();
         month_posts.sort_by(|a, b| a.post_date.cmp(&b.post_date));
 
-        let title = format!("{} {}", current_date.month(), current_date.year());
+        let title = format!("{} {}", month_name, current_date.year());
         let page = MonthIndexPage {
             title: title.as_str(),
             posts: month_posts,

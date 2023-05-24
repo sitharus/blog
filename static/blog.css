@@ -31,6 +31,19 @@
 
 
 	--text-colour: rgb(20, 20, 20);
+
+	--flag-gradient: var(--gradient-blue) 0,
+								  var(--gradient-blue) 5px,
+								  var(--gradient-pink) 5px,
+								  var(--gradient-pink) 10px,
+								  var(--gradient-white) 10px,
+								  var(--gradient-white) 15px,
+								  var(--gradient-pink) 15px,
+								  var(--gradient-pink) 20px,
+								  var(--gradient-blue) 20px,
+								  var(--gradient-blue) 25px,
+								  var(--gradient-divider) 25px,
+								  var(--gradient-divider) 26px;
 }
 
 @font-face {
@@ -68,7 +81,7 @@ a:visited {
 body {
 	display: grid;
 	grid-template: "header header header" 6rem
-				   "left content right" auto /
+				   "left content mainnav" auto /
 				   1fr 850px 1fr;
 	min-height: 100vh;
 	padding: 0;
@@ -104,27 +117,30 @@ body > main {
 	padding-right: 3rem;
 }
 
-body > nav {
-	grid-area: right;
+body > nav.mini {
+	grid-area: mininav;
+	display: none;
+	border-bottom: 1px solid var(--palette-primary-4);
+	padding: 0 3rem;
+	background:
+		linear-gradient(to right in lch, var(--nav-overlay-light), var(--nav-overlay-dark) 150px);
+	align-items: center;
+}
+
+nav.mini a {
+	margin-right: 1rem;
+	text-underline-position: unset;
+}
+
+body > nav.sidebar {
+	grid-area: mainnav;
 	border-left:1px solid var(--palette-primary-4);
 	padding: 1rem 2rem;
 
 
 	background-image:
 		linear-gradient(to right in lch, var(--nav-overlay-light), var(--nav-overlay-dark) 35%),
-		repeating-linear-gradient(18deg,
-								  var(--gradient-blue) 0,
-								  var(--gradient-blue) 5px,
-								  var(--gradient-pink) 5px,
-								  var(--gradient-pink) 10px,
-								  var(--gradient-white) 10px,
-								  var(--gradient-white) 15px,
-								  var(--gradient-pink) 15px,
-								  var(--gradient-pink) 20px,
-								  var(--gradient-blue) 20px,
-								  var(--gradient-blue) 25px,
-								  var(--gradient-divider) 25px,
-								  var(--gradient-divider) 26px);
+		repeating-linear-gradient(18deg, var(--flag-gradient));
 }
 
 article > header > h1 {
@@ -339,4 +355,49 @@ summary {
 	margin-left: 0.3rem;
 	padding-left: 0.6rem;
 	border-left: 3px solid var(--palette-secondary-1-2);
+}
+
+@media(max-width: 1280px) {
+	body {
+		grid-template: "header header" 6rem
+					   "content" "mainnav" auto / 850px 1fr;
+	}
+	body > main {
+		padding-left: 3rem;
+	}
+}
+
+@media(max-width: 1024px) {
+	body {
+		grid-template: "header" minmax(6rem, auto)
+					   "mininav" 2rem
+					   "content" auto
+					   "mainnav" auto / 1fr;
+	}
+
+	body > nav.sidebar {
+		border-left: none;
+		border-top: 1px solid var(--palette-primary-4);
+		background-image:
+					linear-gradient(to bottom in lch, var(--nav-overlay-light), var(--nav-overlay-dark) 35%),
+
+					repeating-linear-gradient(93deg, var(--flag-gradient));
+
+
+		display: flex;
+		align-items: start;
+	}
+
+	body > nav.mini {
+		display: flex;
+	}
+
+
+	body > nav.sidebar > * {
+		margin-right: 2rem;
+	}
+
+	nav.sidebar h1 {
+		margin-top: 0;
+	}
 }
