@@ -138,6 +138,7 @@ nav svg {
 main {
 	padding-left: 2rem;
 	padding-right: 4rem;
+	padding-bottom: 5rem;
 	background: var(--main-background);
 	background-image: linear-gradient(to right, var(--nav-background-dark), var(--main-background) 4px);
 }
@@ -218,6 +219,15 @@ button:hover {
 	cursor: pointer;
 }
 
+button.secondary {
+	background: var(--primary-button-color);
+	color: var(--primary-button-background);
+}
+
+button.secondary:hover {
+	color: var(--primary-button-background-hover);
+}
+
 form.action-links button {
 	display: inline-block;
 	border: none;
@@ -237,6 +247,17 @@ form.action-links button:hover {
 
 form.action-links {
 	flex-direction: row;
+}
+
+div.button-bar {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	justify-content: end;
+}
+
+div.button-bar button {
+	margin-left: 1rem;
 }
 
 div.action-group {
