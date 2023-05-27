@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use anyhow::anyhow;
 use askama::Template;
 use async_std::task;
+use generator::preview_page;
 use serde::Deserialize;
 use serde_querystring::{from_bytes, ParseMode};
 use session::SessionError;
@@ -126,6 +127,7 @@ async fn process(request: &cgi::Request, query_string: &str) -> anyhow::Result<c
             "edit_post" => post::edit_post(request, query).await,
             "comments" => comments::comment_list().await,
             "moderate_comment" => comments::moderate_comment(request).await,
+            "preview" => preview_page(request).await,
             _ => do_404().await,
         }
     }

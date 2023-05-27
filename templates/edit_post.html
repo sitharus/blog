@@ -5,7 +5,10 @@
 	<section>
 		<form method="POST">
 			{% include "post_form.html" %}
-			<button type="submit">Save</button>
+			<div class="button-bar">
+				<button class="secondary" type="submit" formaction="?action=preview" formtarget="preview">Preview</button>
+				<button type="submit">Save</button>
+			</div>
 		</form>
 	</section>
 {% endblock %}

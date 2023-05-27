@@ -1,6 +1,7 @@
-use crate::database;
+use crate::database::{self, connect_db};
 use crate::response::redirect_response;
-use crate::session;
+use crate::session::{self, session_id};
+use crate::utils::{post_body, render_html};
 
 use anyhow::anyhow;
 use askama::Template;
@@ -8,7 +9,7 @@ use async_std::fs::create_dir_all;
 use chrono::{offset::Utc, DateTime, Datelike, Month, NaiveDate};
 use itertools::Itertools;
 use num_traits::FromPrimitive;
-use sqlx::{query, query_as};
+use sqlx::{query, query_as, PgConnection};
 use std::collections::HashMap;
 use std::env;
 use std::fs::File;
@@ -174,17 +175,48 @@ mod filters {
     }
 }
 
-pub async fn regenerate_blog(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
-    let mut connection = database::connect_db().await?;
-    session::session_id(&mut connection, &request).await?;
-    let output_path =
-        env::var("BLOG_OUTPUT_PATH").expect("Environment variable BLOG_OUTPUT_PATH is required");
+pub async fn preview_page(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
+    let mut connection = connect_db().await?;
+    let common = get_common().await?;
+    let session = session_id(&mut connection, request).await?;
+    let user = query!(
+        "SELECT display_name FROM users WHERE id=$1",
+        session.user_id
+    )
+    .fetch_one(&mut connection)
+    .await?;
 
+    let data: HashMap<String, String> = post_body(request)?;
+    let date_str = data.get("date").ok_or(anyhow!("No date!"))?;
+    let post_date = NaiveDate::parse_from_str(&date_str, "%Y-%m-%d")?;
+    let post = HydratedPost {
+        id: 0,
+        post_date,
+        url_slug: "preview".into(),
+        title: data.get("title").ok_or(anyhow!("No title!"))?.to_string(),
+        body: data.get("body").ok_or(anyhow!("no body!"))?.to_string(),
+        author_name: user.display_name,
+        comment_count: Some(0),
+    };
+
+    let post_page = PostPage {
+        title: &post.title,
+        post: &post,
+        common: &common,
+        comments: [].into(),
+    };
+
+    render_html(post_page)
+}
+
+async fn get_common() -> anyhow::Result<CommonData> {
+    // TODO: Figure out how to use a &mut connection argument.
+    let mut connection = connect_db().await?;
+    let settings: HashMap<String, String>;
     let raw_settings = query!("SELECT setting_name, value FROM blog_settings")
         .fetch_all(&mut connection)
         .await?;
-    let settings: HashMap<String, String> =
-        HashMap::from_iter(raw_settings.into_iter().map(|r| (r.setting_name, r.value)));
+    settings = HashMap::from_iter(raw_settings.into_iter().map(|r| (r.setting_name, r.value)));
 
     let links = query_as!(
         Link,
@@ -193,29 +225,15 @@ pub async fn regenerate_blog(request: &cgi::Request) -> anyhow::Result<cgi::Resp
     .fetch_all(&mut connection)
     .await?;
 
-    let posts = query_as!(
-        HydratedPost,
-        "
-SELECT posts.id as id, post_date, url_slug, title, body, users.display_name AS author_name, (SELECT COUNT(*) FROM comments WHERE comments.post_id = posts.id) AS comment_count
-FROM posts
-INNER JOIN users
-ON users.id = posts.author_id
-WHERE state = 'published'
-ORDER BY post_date DESC"
-    )
-    .fetch_all(&mut connection)
-    .await?;
-
-    if posts.len() == 0 {
-        return Ok(redirect_response("dashboard"));
-    }
-
-    let earliest_year = posts.last().ok_or(anyhow!("No posts!"))?.post_date.year();
+    let earliest_post = query!("SELECT post_date FROM posts ORDER BY post_date ASC LIMIT 1")
+        .fetch_one(&mut connection)
+        .await?;
+    let earliest_year = earliest_post.post_date.year();
     let current_year = Utc::now().year();
     let mut years: Vec<i32> = (earliest_year..=current_year).collect();
     years.reverse();
 
-    let common = CommonData {
+    Ok(CommonData {
         base_url: settings
             .get("base_url")
             .ok_or(anyhow!("No blog URL set"))?
@@ -234,7 +252,34 @@ ORDER BY post_date DESC"
             .to_owned(),
         archive_years: years,
         links,
-    };
+    })
+}
+
+pub async fn regenerate_blog(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
+    let mut connection = database::connect_db().await?;
+    session::session_id(&mut connection, &request).await?;
+    let output_path =
+        env::var("BLOG_OUTPUT_PATH").expect("Environment variable BLOG_OUTPUT_PATH is required");
+
+    let posts = query_as!(
+        HydratedPost,
+        "
+SELECT posts.id as id, post_date, url_slug, title, body, users.display_name AS author_name, (SELECT COUNT(*) FROM comments WHERE comments.post_id = posts.id) AS comment_count
+FROM posts
+INNER JOIN users
+ON users.id = posts.author_id
+WHERE state = 'published'
+ORDER BY post_date DESC"
+    )
+    .fetch_all(&mut connection)
+    .await?;
+
+    if posts.len() == 0 {
+        return Ok(redirect_response("dashboard"));
+    }
+
+    let common = get_common().await?;
+
     for post in &posts {
         generate_post_page(&output_path, post, &common, &mut connection).await?;
     }
