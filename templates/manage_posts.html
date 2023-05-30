@@ -33,7 +33,12 @@
 						<td>{{ post.title }}</td>
 						<td>{{ post.post_date|format_long_date }}</td>
 						<td>{{ post.state }}</td>
-						<td><a href="?action=edit_post&id={{post.id}}">Edit</a></td>
+						<td>
+							<a href="?action=edit_post&id={{post.id}}">Edit</a>
+							{% if post.state == PostStatus::Preview %}
+								<a href="{{public_base_url}}?action=preview&id={{post.id}}" target="_blank">Preview</a>
+							{% endif %}
+						</td>
 					</tr>
 
 				{% endfor %}

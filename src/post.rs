@@ -51,6 +51,7 @@ struct NewPostRequest {
 #[template(path = "manage_posts.html")]
 struct ManagePosts {
     selected_menu_item: AdminMenuPages,
+    public_base_url: String,
     posts: Vec<Post>,
     current_page: i64,
     items_per_page: i64,
@@ -162,6 +163,11 @@ pub async fn manage_posts(query: HashMap<String, String>) -> anyhow::Result<cgi:
     let current_page = query.get("page").and_then(|p| p.parse().ok()).unwrap_or(0);
     let items_per_page = query.get("page").and_then(|p| p.parse().ok()).unwrap_or(20);
 
+    let public_base_url =
+        query!("SELECT value FROM blog_settings WHERE setting_name='comment_cgi_url'")
+            .fetch_one(&mut connection)
+            .await?;
+
     let posts = query_as!(
         Post,
         r#"SELECT id, author_id, post_date, created_date, updated_date, state as "state: PostStatus", url_slug, title, body FROM posts ORDER BY post_date DESC OFFSET $1 ROWS FETCH NEXT $2 ROWS ONLY"#,
@@ -184,6 +190,7 @@ pub async fn manage_posts(query: HashMap<String, String>) -> anyhow::Result<cgi:
         items_per_page,
         post_count,
         page_count,
+        public_base_url: public_base_url.value,
     };
 
     render_html(content)
