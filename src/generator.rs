@@ -1,11 +1,12 @@
 use crate::database::{self, connect_db};
 use crate::response::redirect_response;
 use crate::session::{self, session_id};
-use crate::utils::{post_body, render_html};
+use crate::utils::{post_body, render_html, render_html_status};
 
 use anyhow::anyhow;
 use askama::Template;
 use async_std::fs::create_dir_all;
+use cgi::text_response;
 use chrono::{offset::Utc, DateTime, Datelike, Month, NaiveDate};
 use itertools::Itertools;
 use num_traits::FromPrimitive;
@@ -208,6 +209,38 @@ pub async fn preview_page(request: &cgi::Request) -> anyhow::Result<cgi::Respons
     };
 
     render_html(post_page)
+}
+
+pub async fn external_preview(id: i32) -> anyhow::Result<cgi::Response> {
+    let mut connection = connect_db().await?;
+    let maybe_post = query_as!(
+        HydratedPost,
+        "
+SELECT posts.id as id, post_date, url_slug, title, body, users.display_name AS author_name, (SELECT COUNT(*) FROM comments WHERE comments.post_id = posts.id) AS comment_count
+FROM posts
+INNER JOIN users
+ON users.id = posts.author_id
+WHERE state = 'preview'
+AND posts.id=$1
+ORDER BY post_date DESC", id
+    )
+    .fetch_optional(&mut connection)
+    .await?;
+
+    match maybe_post {
+        Some(post) => {
+            let common = get_common().await?;
+            let post_page = PostPage {
+                title: &post.title,
+                post: &post,
+                common: &common,
+                comments: [].into(),
+            };
+
+            render_html(post_page)
+        }
+        _ => Ok(text_response(404, "404 Not Found")),
+    }
 }
 
 async fn get_common() -> anyhow::Result<CommonData> {

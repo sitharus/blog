@@ -7,6 +7,9 @@ use cgi;
 use sqlx::query;
 
 mod database;
+mod generator;
+mod response;
+mod session;
 mod utils;
 
 #[derive(Template)]
@@ -89,6 +92,12 @@ VALUES($1, CURRENT_TIMESTAMP, $2, $3, $4)
     })
 }
 
+async fn preview(query: HashMap<String, String>) -> anyhow::Result<cgi::Response> {
+    let id: i32 = query.get("id").ok_or(anyhow!("no post ID!"))?.parse()?;
+
+    generator::external_preview(id).await
+}
+
 async fn process(request: &cgi::Request, query_string: &str) -> anyhow::Result<cgi::Response> {
     let query: HashMap<String, String> = utils::parse_query_string(query_string)?;
     let action = query.get("action");
@@ -97,6 +106,7 @@ async fn process(request: &cgi::Request, query_string: &str) -> anyhow::Result<c
         Some(str) => match str.as_str() {
             "comment_form" => comment_form(query).await,
             "comment" => post_comment(request).await,
+            "preview" => preview(query).await,
             _ => utils::render_html(Http400 {}),
         },
         _ => utils::render_html(Http400 {}),
