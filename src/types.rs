@@ -1,15 +1,22 @@
 use chrono::{offset::Utc, DateTime};
 use core::fmt;
 
-#[derive(serde::Deserialize, sqlx::Type, std::fmt::Debug, PartialEq)]
+#[derive(serde::Deserialize, sqlx::Type, fmt::Debug, PartialEq, Clone)]
 #[sqlx(type_name = "post_status")] // only for PostgreSQL to match a type definition
 #[sqlx(rename_all = "lowercase")]
 pub enum PostStatus {
     Draft,
+    Preview,
     Published,
 }
 
-#[derive(serde::Deserialize, sqlx::Type, std::fmt::Debug, PartialEq)]
+impl fmt::Display for PostStatus {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+#[derive(serde::Deserialize, sqlx::Type, fmt::Debug, PartialEq, Clone)]
 #[sqlx(type_name = "comment_status")] // only for PostgreSQL to match a type definition
 #[sqlx(rename_all = "lowercase")]
 pub enum CommentStatus {

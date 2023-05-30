@@ -9,11 +9,12 @@ use async_std::fs::create_dir_all;
 use chrono::{offset::Utc, DateTime, Datelike, Month, NaiveDate};
 use itertools::Itertools;
 use num_traits::FromPrimitive;
-use sqlx::{query, query_as, PgConnection};
+use sqlx::{query, query_as};
 use std::collections::HashMap;
 use std::env;
 use std::fs::File;
 use std::io::prelude::*;
+use std::rc::Rc;
 
 pub struct HydratedPost {
     pub id: i32,
@@ -210,8 +211,9 @@ pub async fn preview_page(request: &cgi::Request) -> anyhow::Result<cgi::Respons
 }
 
 async fn get_common() -> anyhow::Result<CommonData> {
-    // TODO: Figure out how to use a &mut connection argument.
     let mut connection = connect_db().await?;
+
+    // TODO: Figure out how to use a &mut connection argument.
     let settings: HashMap<String, String>;
     let raw_settings = query!("SELECT setting_name, value FROM blog_settings")
         .fetch_all(&mut connection)

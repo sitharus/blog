@@ -124,6 +124,7 @@ pub async fn edit_post(
 
     if request.method() == "POST" {
         let req: NewPostRequest = post_body(request)?;
+        let status = req.status.clone();
         query!(
             "UPDATE posts SET title=$1, body=$2, state=$3, post_date = $4 WHERE id=$5",
             req.title,
@@ -134,24 +135,25 @@ pub async fn edit_post(
         )
         .execute(&mut connection)
         .await?;
-        render_redirect("posts")
-    } else {
-        let post = sqlx::query!(
-            r#"SELECT title, body, state as "state: PostStatus", post_date  FROM posts WHERE id = $1"#,
-            id
-        )
-        .fetch_one(&mut connection)
-        .await?;
-
-        let content = EditPost {
-            title: &post.title,
-            body: &post.body,
-            selected_menu_item: AdminMenuPages::Posts,
-            status: post.state,
-            date: &post.post_date,
-        };
-        render_html(content)
+        if status == PostStatus::Published {
+            return render_redirect("posts");
+        }
     }
+    let post = sqlx::query!(
+        r#"SELECT title, body, state as "state: PostStatus", post_date  FROM posts WHERE id = $1"#,
+        id
+    )
+    .fetch_one(&mut connection)
+    .await?;
+
+    let content = EditPost {
+        title: &post.title,
+        body: &post.body,
+        selected_menu_item: AdminMenuPages::Posts,
+        status: post.state,
+        date: &post.post_date,
+    };
+    render_html(content)
 }
 
 pub async fn manage_posts(query: HashMap<String, String>) -> anyhow::Result<cgi::Response> {

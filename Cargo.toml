@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [[bin]]
-name = "admin"
+name = "blog-admin"
 path = "src/main.rs"
 
 [[bin]]
@@ -12,7 +12,7 @@ name = "migrations"
 path = "src/migrate.rs"
 
 [[bin]]
-name = "blog"
+name = "comment"
 path = "src/public.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

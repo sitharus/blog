@@ -22,7 +22,8 @@
 			<thead>
 				<tr>
 					<th>Title</th>
-					<th>Posted on</th>
+					<th>Date</th>
+					<th>Status</th>
 					<th>Actions</th>
 				</tr>
 			</thead>
@@ -31,6 +32,7 @@
 					<tr>
 						<td>{{ post.title }}</td>
 						<td>{{ post.post_date|format_long_date }}</td>
+						<td>{{ post.state }}</td>
 						<td><a href="?action=edit_post&id={{post.id}}">Edit</a></td>
 					</tr>
 
