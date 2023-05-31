@@ -4,7 +4,11 @@ use serde_querystring::from_bytes;
 use sqlx::{query, query_as};
 use std::collections::HashMap;
 
-use crate::{session, types::AdminMenuPages};
+use crate::{
+    common::{get_common, Common},
+    session,
+    types::AdminMenuPages,
+};
 
 use shared::{
     database,
@@ -13,7 +17,7 @@ use shared::{
 #[derive(Template)]
 #[template(path = "links.html")]
 struct Links {
-    selected_menu_item: AdminMenuPages,
+    common: Common,
     links: Vec<Link>,
 }
 
@@ -94,10 +98,8 @@ pub async fn render(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
     .fetch_all(&mut connection)
     .await?;
 
-    let page = Links {
-        selected_menu_item: AdminMenuPages::Links,
-        links,
-    };
+    let common = get_common(&mut connection, AdminMenuPages::Links).await?;
+    let page = Links { common, links };
 
     render_html(page)
 }

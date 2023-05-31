@@ -1,4 +1,8 @@
-use crate::{filters, types::AdminMenuPages};
+use crate::{
+    common::{get_common, Common},
+    filters,
+    types::AdminMenuPages,
+};
 
 use askama::Template;
 use chrono::{DateTime, Utc};
@@ -13,7 +17,7 @@ use sqlx::{query, query_as};
 #[derive(Template)]
 #[template(path = "comment_list.html")]
 struct Comments {
-    selected_menu_item: AdminMenuPages,
+    common: Common,
     comments: Vec<CommentListItem>,
 }
 
@@ -47,8 +51,9 @@ WHERE c.status = 'pending'
     .fetch_all(&mut db)
     .await?;
 
+    let common = get_common(&mut db, AdminMenuPages::Comments).await?;
     render_html(Comments {
-        selected_menu_item: AdminMenuPages::Comments,
+        common,
         comments: items,
     })
 }

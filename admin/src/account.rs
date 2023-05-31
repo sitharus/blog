@@ -1,4 +1,7 @@
-use crate::types::AdminMenuPages;
+use crate::{
+    common::{get_common, Common},
+    types::AdminMenuPages,
+};
 use askama::Template;
 use cgi;
 use serde::Deserialize;
@@ -13,7 +16,7 @@ use super::session;
 #[derive(Template)]
 #[template(path = "account.html")]
 struct Account {
-    selected_menu_item: AdminMenuPages,
+    common: Common,
     name: String,
 }
 
@@ -84,8 +87,9 @@ pub async fn render(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
     .fetch_one(&mut connection)
     .await?;
 
+    let common = get_common(&mut connection, AdminMenuPages::Account).await?;
     let content = Account {
-        selected_menu_item: AdminMenuPages::Account,
+        common,
         name: details.display_name.unwrap_or("".into()),
     };
 

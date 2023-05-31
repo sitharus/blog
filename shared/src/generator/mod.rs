@@ -5,7 +5,7 @@ use anyhow::anyhow;
 use askama::Template;
 use cgi::text_response;
 use chrono::{Datelike, Utc};
-use sqlx::{query, query_as};
+use sqlx::{postgres::PgConnection, query, query_as};
 use std::collections::HashMap;
 pub mod filters;
 
@@ -36,7 +36,7 @@ ORDER BY post_date DESC", id
 
     match maybe_post {
         Some(post) => {
-            let common = get_common().await?;
+            let common = get_common(&mut connection).await?;
             let post_page = PostPage {
                 title: &post.title,
                 post: &post,
@@ -50,13 +50,11 @@ ORDER BY post_date DESC", id
     }
 }
 
-async fn get_common() -> anyhow::Result<CommonData> {
-    let mut connection = connect_db().await?;
-
+pub async fn get_common(connection: &mut PgConnection) -> anyhow::Result<CommonData> {
     // TODO: Figure out how to use a &mut connection argument.
     let settings: HashMap<String, String>;
     let raw_settings = query!("SELECT setting_name, value FROM blog_settings")
-        .fetch_all(&mut connection)
+        .fetch_all(&mut *connection)
         .await?;
     settings = HashMap::from_iter(raw_settings.into_iter().map(|r| (r.setting_name, r.value)));
 
@@ -64,11 +62,11 @@ async fn get_common() -> anyhow::Result<CommonData> {
         Link,
         "SELECT title, destination FROM external_links ORDER BY position"
     )
-    .fetch_all(&mut connection)
+    .fetch_all(&mut *connection)
     .await?;
 
     let earliest_post = query!("SELECT post_date FROM posts ORDER BY post_date ASC LIMIT 1")
-        .fetch_one(&mut connection)
+        .fetch_one(&mut *connection)
         .await?;
     let earliest_year = earliest_post.post_date.year();
     let current_year = Utc::now().year();

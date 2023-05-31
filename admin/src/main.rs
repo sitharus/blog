@@ -15,6 +15,7 @@ use shared::{
 
 mod account;
 mod comments;
+mod common;
 mod dashboard;
 mod filters;
 mod generator;

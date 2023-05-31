@@ -6,7 +6,10 @@ use shared::{
     utils::{parse_into, post_body, render_html, render_redirect},
 };
 
-use crate::types::AdminMenuPages;
+use crate::{
+    common::{get_common, Common},
+    types::AdminMenuPages,
+};
 
 use super::filters;
 use super::response;
@@ -22,20 +25,20 @@ use sqlx::{query, query_as};
 #[derive(Template)]
 #[template(path = "new_post.html")]
 struct NewPost<'a> {
+    common: Common,
     title: &'a str,
     body: &'a str,
     date: &'a NaiveDate,
-    selected_menu_item: AdminMenuPages,
     status: PostStatus,
 }
 
 #[derive(Template)]
 #[template(path = "edit_post.html")]
 struct EditPost<'a> {
+    common: Common,
     title: &'a str,
     body: &'a str,
     date: &'a NaiveDate,
-    selected_menu_item: AdminMenuPages,
     status: PostStatus,
 }
 
@@ -50,7 +53,7 @@ struct NewPostRequest {
 #[derive(Template)]
 #[template(path = "manage_posts.html")]
 struct ManagePosts {
-    selected_menu_item: AdminMenuPages,
+    common: Common,
     public_base_url: String,
     posts: Vec<Post>,
     current_page: i64,
@@ -62,6 +65,8 @@ struct ManagePosts {
 pub async fn new_post(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
     let mut connection = database::connect_db().await?;
     let session::Session { user_id, .. } = session::session_id(&mut connection, &request).await?;
+
+    let common = get_common(&mut connection, AdminMenuPages::NewPost).await?;
 
     if request.method() == "POST" {
         let req: NewPostRequest = post_body(request)?;
@@ -93,9 +98,9 @@ VALUES($1, $6, current_timestamp, current_timestamp, $5, $2, $3, $4)"#,
             Ok(response::redirect_response("dashboard"))
         } else {
             let content = NewPost {
+                common,
                 title: req.title.as_str(),
                 body: req.body.as_str(),
-                selected_menu_item: AdminMenuPages::NewPost,
                 status: req.status,
                 date: &req.date,
             };
@@ -104,9 +109,9 @@ VALUES($1, $6, current_timestamp, current_timestamp, $5, $2, $3, $4)"#,
     }
 
     let content = NewPost {
+        common,
         title: "",
         body: "",
-        selected_menu_item: AdminMenuPages::NewPost,
         status: PostStatus::Draft,
         date: &Utc::now().date_naive(),
     };
@@ -147,10 +152,12 @@ pub async fn edit_post(
     .fetch_one(&mut connection)
     .await?;
 
+    let common = get_common(&mut connection, AdminMenuPages::Posts).await?;
+
     let content = EditPost {
+        common,
         title: &post.title,
         body: &post.body,
-        selected_menu_item: AdminMenuPages::Posts,
         status: post.state,
         date: &post.post_date,
     };
@@ -183,8 +190,9 @@ pub async fn manage_posts(query: HashMap<String, String>) -> anyhow::Result<cgi:
     let post_count = count.count.unwrap_or_default();
     let page_count = (post_count as f64 / items_per_page as f64).ceil() as i64;
 
+    let common = get_common(&mut connection, AdminMenuPages::Posts).await?;
     let content = ManagePosts {
-        selected_menu_item: AdminMenuPages::Posts,
+        common,
         posts,
         current_page,
         items_per_page,

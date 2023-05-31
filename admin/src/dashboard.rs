@@ -1,4 +1,7 @@
-use crate::types::AdminMenuPages;
+use crate::{
+    common::{get_common, Common},
+    types::AdminMenuPages,
+};
 use askama::Template;
 use cgi;
 use shared::{
@@ -14,7 +17,7 @@ use crate::filters;
 #[derive(Template)]
 #[template(path = "dashboard.html")]
 struct Dashboard {
-    selected_menu_item: AdminMenuPages,
+    common: Common,
     recent_posts: Vec<Post>,
 }
 
@@ -28,13 +31,16 @@ pub async fn render(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
 SELECT id, author_id, post_date, created_date, updated_date, state as "state: PostStatus",
        url_slug, title, body
 FROM posts
+WHERE state = 'published'
 ORDER BY post_date DESC
 FETCH FIRST 10 ROWS ONLY"#
     )
     .fetch_all(&mut connection)
     .await?;
+
+    let common = get_common(&mut connection, AdminMenuPages::Dashboard).await?;
     let content = Dashboard {
-        selected_menu_item: AdminMenuPages::Dashboard,
+        common,
         recent_posts,
     };
 

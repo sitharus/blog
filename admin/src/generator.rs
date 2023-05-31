@@ -1,8 +1,8 @@
 use crate::response::redirect_response;
 use crate::session::{self, session_id};
 use shared::database::{self, connect_db};
-use shared::generator::filters;
-use shared::types::{CommonData, HydratedComment, HydratedPost, Link};
+use shared::generator::{filters, get_common};
+use shared::types::{CommonData, HydratedComment, HydratedPost};
 use shared::utils::{post_body, render_html};
 
 use anyhow::anyhow;
@@ -70,7 +70,7 @@ struct AtomFeed<'a> {
 
 pub async fn preview_page(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
     let mut connection = connect_db().await?;
-    let common = get_common().await?;
+    let common = get_common(&mut connection).await?;
     let session = session_id(&mut connection, request).await?;
     let user = query!(
         "SELECT display_name FROM users WHERE id=$1",
@@ -102,53 +102,6 @@ pub async fn preview_page(request: &cgi::Request) -> anyhow::Result<cgi::Respons
     render_html(post_page)
 }
 
-async fn get_common() -> anyhow::Result<CommonData> {
-    let mut connection = connect_db().await?;
-
-    // TODO: Figure out how to use a &mut connection argument.
-    let settings: HashMap<String, String>;
-    let raw_settings = query!("SELECT setting_name, value FROM blog_settings")
-        .fetch_all(&mut connection)
-        .await?;
-    settings = HashMap::from_iter(raw_settings.into_iter().map(|r| (r.setting_name, r.value)));
-
-    let links = query_as!(
-        Link,
-        "SELECT title, destination FROM external_links ORDER BY position"
-    )
-    .fetch_all(&mut connection)
-    .await?;
-
-    let earliest_post = query!("SELECT post_date FROM posts ORDER BY post_date ASC LIMIT 1")
-        .fetch_one(&mut connection)
-        .await?;
-    let earliest_year = earliest_post.post_date.year();
-    let current_year = Utc::now().year();
-    let mut years: Vec<i32> = (earliest_year..=current_year).collect();
-    years.reverse();
-
-    Ok(CommonData {
-        base_url: settings
-            .get("base_url")
-            .ok_or(anyhow!("No blog URL set"))?
-            .to_owned(),
-        blog_name: settings
-            .get("blog_name")
-            .ok_or(anyhow!("No blog name set"))?
-            .to_owned(),
-        static_base_url: settings
-            .get("static_base_url")
-            .ok_or(anyhow!("No base URL set"))?
-            .to_owned(),
-        comment_cgi_url: settings
-            .get("comment_cgi_url")
-            .ok_or(anyhow!("No CGI url set"))?
-            .to_owned(),
-        archive_years: years,
-        links,
-    })
-}
-
 pub async fn regenerate_blog(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
     let mut connection = database::connect_db().await?;
     session::session_id(&mut connection, &request).await?;
@@ -172,7 +125,7 @@ ORDER BY post_date DESC"
         return Ok(redirect_response("dashboard"));
     }
 
-    let common = get_common().await?;
+    let common = get_common(&mut connection).await?;
 
     for post in &posts {
         generate_post_page(&output_path, post, &common, &mut connection).await?;

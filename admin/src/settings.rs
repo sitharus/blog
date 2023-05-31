@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
-use crate::types::AdminMenuPages;
+use crate::{
+    common::{get_common, Common},
+    types::AdminMenuPages,
+};
 use askama::Template;
 use cgi;
 use shared::{database, utils::post_body};
@@ -9,7 +12,7 @@ use sqlx::query;
 #[derive(Template)]
 #[template(path = "settings.html")]
 struct Settings {
-    selected_menu_item: AdminMenuPages,
+    common: Common,
     blog_name: String,
     base_url: String,
     static_base_url: String,
@@ -63,8 +66,10 @@ pub async fn render(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
         .get("comment_cgi_url")
         .unwrap_or(&String::from("/cgi-bin/blog.cgi"))
         .to_owned();
+
+    let common = get_common(&mut connection, AdminMenuPages::Settings).await?;
     let page = Settings {
-        selected_menu_item: AdminMenuPages::Settings,
+        common,
         blog_name,
         base_url,
         static_base_url,

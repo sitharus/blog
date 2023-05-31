@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 	{%- macro isselected(item) -%}
-	{%- if selected_menu_item == item %}selected{% endif -%}
+	{%- if common.current_page == item %}selected{% endif -%}
 	{%- endmacro -%}
 <head>
 	<title>Blog Admin</title>
@@ -21,7 +21,7 @@
 				<a href="?action=posts" class="{% call isselected("posts") %}"> {% include "article.svg" %} Manage Posts </a>
 			</li>
 			<li>
-				<a href="?action=comments" class="{% call isselected("comments") %}"> {% include "comment.svg" %} Comments </a>
+				<a href="?action=comments" class="{% call isselected("comments") %}"> {% include "comment.svg" %} Comments ({{common.comments_waiting}})</a>
 			</li>
 			<li>
 				<a href="?action=links" class="{% call isselected("links") %}"> {% include "link.svg" %} Links </a>
