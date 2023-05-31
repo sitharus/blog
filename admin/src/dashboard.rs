@@ -1,10 +1,13 @@
-use crate::types::{AdminMenuPages, Post, PostStatus};
-use crate::utils::render_html;
+use crate::types::AdminMenuPages;
 use askama::Template;
 use cgi;
+use shared::{
+    database,
+    types::{Post, PostStatus},
+    utils::render_html,
+};
 use sqlx::query_as;
 
-use super::database;
 use super::session;
 use crate::filters;
 

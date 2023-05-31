@@ -3,16 +3,19 @@ use std::collections::HashMap;
 use anyhow::anyhow;
 use askama::Template;
 use async_std::task;
+use cgi;
 use generator::preview_page;
 use serde::Deserialize;
 use serde_querystring::{from_bytes, ParseMode};
 use session::SessionError;
-use utils::{parse_query_string, render_html, render_html_status};
+use shared::{
+    database,
+    utils::{parse_query_string, render_html, render_html_status},
+};
 
 mod account;
 mod comments;
 mod dashboard;
-mod database;
 mod filters;
 mod generator;
 mod links;
@@ -21,10 +24,6 @@ mod response;
 mod session;
 mod settings;
 mod types;
-mod utils;
-
-extern crate cgi;
-extern crate http;
 
 #[derive(Template)]
 #[template(path = "index.html")]

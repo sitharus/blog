@@ -1,5 +1,35 @@
-use chrono::{offset::Utc, DateTime};
-use core::fmt;
+use chrono::{DateTime, NaiveDate, Utc};
+use std::fmt;
+
+pub struct HydratedPost {
+    pub id: i32,
+    pub post_date: NaiveDate,
+    pub url_slug: String,
+    pub title: String,
+    pub body: String,
+    pub author_name: Option<String>,
+    pub comment_count: Option<i64>,
+}
+
+pub struct HydratedComment {
+    pub author_name: String,
+    pub created_date: DateTime<Utc>,
+    pub post_body: String,
+}
+
+pub struct Link {
+    pub title: String,
+    pub destination: String,
+}
+
+pub struct CommonData {
+    pub base_url: String,
+    pub static_base_url: String,
+    pub comment_cgi_url: String,
+    pub blog_name: String,
+    pub archive_years: Vec<i32>,
+    pub links: Vec<Link>,
+}
 
 #[derive(serde::Deserialize, sqlx::Type, fmt::Debug, PartialEq, Clone)]
 #[sqlx(type_name = "post_status")] // only for PostgreSQL to match a type definition
@@ -35,34 +65,4 @@ pub struct Post {
     pub url_slug: String,
     pub title: String,
     pub body: String,
-}
-
-pub enum AdminMenuPages {
-    Dashboard,
-    Account,
-    Posts,
-    NewPost,
-    Settings,
-    Links,
-    Comments,
-}
-impl fmt::Display for AdminMenuPages {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            AdminMenuPages::Dashboard => write!(f, "dashboard"),
-            AdminMenuPages::Account => write!(f, "account"),
-            AdminMenuPages::Posts => write!(f, "posts"),
-            AdminMenuPages::NewPost => write!(f, "newpost"),
-            AdminMenuPages::Settings => write!(f, "settings"),
-            AdminMenuPages::Links => write!(f, "links"),
-            AdminMenuPages::Comments => write!(f, "comments"),
-        }
-    }
-}
-
-impl PartialEq<&str> for AdminMenuPages {
-    fn eq(&self, rhs: &&str) -> bool {
-        let str_value = self.to_string();
-        return str_value == *rhs;
-    }
 }

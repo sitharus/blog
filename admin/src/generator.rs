@@ -1,12 +1,13 @@
-use crate::database::{self, connect_db};
 use crate::response::redirect_response;
 use crate::session::{self, session_id};
-use crate::utils::{post_body, render_html, render_html_status};
+use shared::database::{self, connect_db};
+use shared::generator::filters;
+use shared::types::{CommonData, HydratedComment, HydratedPost, Link};
+use shared::utils::{post_body, render_html};
 
 use anyhow::anyhow;
 use askama::Template;
 use async_std::fs::create_dir_all;
-use cgi::text_response;
 use chrono::{offset::Utc, DateTime, Datelike, Month, NaiveDate};
 use itertools::Itertools;
 use num_traits::FromPrimitive;
@@ -15,37 +16,6 @@ use std::collections::HashMap;
 use std::env;
 use std::fs::File;
 use std::io::prelude::*;
-use std::rc::Rc;
-
-pub struct HydratedPost {
-    pub id: i32,
-    pub post_date: NaiveDate,
-    pub url_slug: String,
-    pub title: String,
-    pub body: String,
-    pub author_name: Option<String>,
-    pub comment_count: Option<i64>,
-}
-
-pub struct HydratedComment {
-    author_name: String,
-    created_date: DateTime<Utc>,
-    post_body: String,
-}
-
-pub struct Link {
-    pub title: String,
-    pub destination: String,
-}
-
-pub struct CommonData {
-    base_url: String,
-    static_base_url: String,
-    comment_cgi_url: String,
-    blog_name: String,
-    archive_years: Vec<i32>,
-    links: Vec<Link>,
-}
 
 #[derive(Template)]
 #[template(path = "generated/post.html")]
@@ -98,85 +68,6 @@ struct AtomFeed<'a> {
     date: DateTime<Utc>,
 }
 
-mod filters {
-    use super::{CommonData, HydratedPost};
-    use chrono::{offset::Utc, DateTime, Datelike, Month, NaiveDate};
-    use num_traits::FromPrimitive;
-    use ordinal::Ordinal;
-
-    pub fn posturl(post: &HydratedPost, common: &CommonData) -> ::askama::Result<String> {
-        let month = Month::from_u32(post.post_date.month())
-            .ok_or(::askama::Error::Custom("Could not find month".into()))?
-            .name();
-        let url = format!(
-            "{}{}/{}/{}.html",
-            common.base_url,
-            post.post_date.year(),
-            month,
-            post.url_slug
-        );
-        Ok(url)
-    }
-
-    pub fn month_name(month: u32) -> ::askama::Result<String> {
-        let month = Month::from_u32(month)
-            .ok_or(::askama::Error::Custom("Could not find month".into()))?
-            .name();
-        Ok(String::from(month))
-    }
-
-    pub fn format_human_date(date_time: &NaiveDate) -> ::askama::Result<String> {
-        Ok(date_time.format("%A, %-d %B, %C%y").to_string())
-    }
-
-    pub fn format_human_datetime(date_time: &DateTime<Utc>) -> ::askama::Result<String> {
-        Ok(date_time.format("%A, %-d %B, %C%y at %-I:%m%P").to_string())
-    }
-
-    pub fn format_rfc3339_datetime(date_time: &DateTime<Utc>) -> ::askama::Result<String> {
-        Ok(date_time.to_rfc3339())
-    }
-
-    pub fn format_rfc2822_datetime(date_time: &DateTime<Utc>) -> ::askama::Result<String> {
-        Ok(date_time.to_rfc2822())
-    }
-
-    pub fn format_rfc3339_date(date: &NaiveDate) -> ::askama::Result<String> {
-        date.and_hms_opt(0, 0, 0)
-            .ok_or(::askama::Error::Custom(
-                "Could not find midnight UTC".into(),
-            ))?
-            .and_local_timezone(Utc)
-            .earliest()
-            .ok_or(::askama::Error::Custom("Cannot convert to UTC".into()))
-            .map(|d| d.to_rfc3339())
-    }
-
-    pub fn format_rfc2822_date(date: &NaiveDate) -> ::askama::Result<String> {
-        date.and_hms_opt(0, 0, 0)
-            .ok_or(::askama::Error::Custom(
-                "Could not find midnight UTC".into(),
-            ))?
-            .and_local_timezone(Utc)
-            .earliest()
-            .ok_or(::askama::Error::Custom("Cannot convert to UTC".into()))
-            .map(|d| d.to_rfc2822())
-    }
-
-    pub fn pluralise(base: &str, count: &Option<i64>) -> ::askama::Result<String> {
-        match count {
-            Some(1) => Ok(base.to_string()),
-            _ => Ok(format!("{}s", base)),
-        }
-    }
-
-    pub fn format_weekday(date: &NaiveDate) -> ::askama::Result<String> {
-        let weekday = date.weekday();
-        let day = Ordinal(date.day());
-        Ok(format!("{} {}", weekday, day))
-    }
-}
-
 pub async fn preview_page(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
     let mut connection = connect_db().await?;
     let common = get_common().await?;
@@ -209,38 +100,6 @@ pub async fn preview_page(request: &cgi::Request) -> anyhow::Result<cgi::Respons
     };
 
     render_html(post_page)
-}
-
-pub async fn external_preview(id: i32) -> anyhow::Result<cgi::Response> {
-    let mut connection = connect_db().await?;
-    let maybe_post = query_as!(
-        HydratedPost,
-        "
-SELECT posts.id as id, post_date, url_slug, title, body, users.display_name AS author_name, (SELECT COUNT(*) FROM comments WHERE comments.post_id = posts.id) AS comment_count
-FROM posts
-INNER JOIN users
-ON users.id = posts.author_id
-WHERE state = 'preview'
-AND posts.id=$1
-ORDER BY post_date DESC", id
-    )
-    .fetch_optional(&mut connection)
-    .await?;
-
-    match maybe_post {
-        Some(post) => {
-            let common = get_common().await?;
-            let post_page = PostPage {
-                title: &post.title,
-                post: &post,
-                common: &common,
-                comments: [].into(),
-            };
-
-            render_html(post_page)
-        }
-        _ => Ok(text_response(404, "404 Not Found")),
-    }
 }
 
 async fn get_common() -> anyhow::Result<CommonData> {

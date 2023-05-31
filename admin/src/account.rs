@@ -1,12 +1,13 @@
 use crate::types::AdminMenuPages;
-use crate::utils::post_body;
-use crate::utils::render_html;
 use askama::Template;
 use cgi;
 use serde::Deserialize;
+use shared::{
+    database,
+    utils::{post_body, render_html},
+};
 use sqlx::query;
 
-use super::database;
 use super::session;
 
 #[derive(Template)]

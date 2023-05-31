@@ -12,7 +12,7 @@ async fn migrate() {
     let connection_string = env::var("BLOG_CONNECTION_STRING")
         .expect("Environment variable BLOG_CONNECTION_STRING must be set");
     let mut connection = PgConnection::connect(&connection_string).await.unwrap();
-    sqlx::migrate!("db/migrations")
+    sqlx::migrate!("../db/migrations")
         .run(&mut connection)
         .await
         .unwrap();

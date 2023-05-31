@@ -4,12 +4,12 @@ use serde_querystring::from_bytes;
 use sqlx::{query, query_as};
 use std::collections::HashMap;
 
-use crate::{
-    database, session,
-    types::AdminMenuPages,
+use crate::{session, types::AdminMenuPages};
+
+use shared::{
+    database,
     utils::{render_html, BlogUtils},
 };
-
 #[derive(Template)]
 #[template(path = "links.html")]
 struct Links {

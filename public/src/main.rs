@@ -4,13 +4,8 @@ use anyhow::anyhow;
 use askama::Template;
 use async_std::task;
 use cgi;
+use shared::{database, generator, utils};
 use sqlx::query;
-
-mod database;
-mod generator;
-mod response;
-mod session;
-mod utils;
 
 #[derive(Template)]
 #[template(path = "400.html")]

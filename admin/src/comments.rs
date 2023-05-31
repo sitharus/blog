@@ -1,11 +1,13 @@
-use crate::{
-    database, filters,
-    types::{AdminMenuPages, CommentStatus},
-    utils::{post_body, render_html, render_redirect},
-};
+use crate::{filters, types::AdminMenuPages};
+
 use askama::Template;
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
+use shared::{
+    database,
+    types::CommentStatus,
+    utils::{post_body, render_html, render_redirect},
+};
 use sqlx::{query, query_as};
 
 #[derive(Template)]

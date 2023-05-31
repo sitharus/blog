@@ -1,12 +1,10 @@
 use std::collections::HashMap;
 
 use crate::types::AdminMenuPages;
-use crate::utils::post_body;
 use askama::Template;
 use cgi;
+use shared::{database, utils::post_body};
 use sqlx::query;
-
-use super::database;
 
 #[derive(Template)]
 #[template(path = "settings.html")]

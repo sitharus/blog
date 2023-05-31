@@ -3,6 +3,30 @@
 version = 3
 
 [[package]]
+name = "admin"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "askama",
+ "async-std",
+ "bcrypt",
+ "cgi",
+ "chrono",
+ "http",
+ "itertools",
+ "num-traits",
+ "ordinal",
+ "regex",
+ "serde",
+ "serde-querystring",
+ "serde_json",
+ "shared",
+ "sqlx",
+ "time 0.3.20",
+ "uuid",
+]
+
+[[package]]
 name = "ahash"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -276,29 +300,6 @@ dependencies = [
  "fastrand",
  "futures-lite",
  "log",
-]
-
-[[package]]
-name = "blog_cgi"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "askama",
- "async-std",
- "bcrypt",
- "cgi",
- "chrono",
- "http",
- "itertools",
- "num-traits",
- "ordinal",
- "regex",
- "serde",
- "serde-querystring",
- "serde_json",
- "sqlx",
- "time 0.3.20",
- "uuid",
 ]
 
 [[package]]
@@ -1003,6 +1004,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2dffe52ecf27772e601905b7522cb4ef790d2cc203488bbd0e2fe85fcb74566d"
 
 [[package]]
+name = "migrations"
+version = "0.1.0"
+dependencies = [
+ "async-std",
+ "sqlx",
+]
+
+[[package]]
 name = "mime"
 version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1196,6 +1205,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b63bdb0cd06f1f4dedf69b254734f9b45af66e4a031e42a7480257d9898b435"
 dependencies = [
  "unicode-ident",
+]
+
+[[package]]
+name = "public"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "askama",
+ "async-std",
+ "cgi",
+ "serde",
+ "shared",
+ "sqlx",
 ]
 
 [[package]]
@@ -1407,6 +1429,22 @@ dependencies = [
  "cfg-if",
  "cpufeatures",
  "digest",
+]
+
+[[package]]
+name = "shared"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "askama",
+ "cgi",
+ "chrono",
+ "http",
+ "num-traits",
+ "ordinal",
+ "serde",
+ "serde-querystring",
+ "sqlx",
 ]
 
 [[package]]
