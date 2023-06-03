@@ -135,7 +135,7 @@ ORDER BY post_date DESC"
         let path = if pos == 0 {
             String::from("index.html")
         } else {
-            format!("{}.html", pos + 1)
+            format!("index{}.html", pos + 1)
         };
         let mut file = File::create(format!("{}/{}", output_path, path))?;
 
@@ -243,6 +243,7 @@ async fn regenerate_month_index_pages(
             .ok_or(anyhow!("Bad month number"))?
             .name();
         let index_dir = format!("{}/{}/{}", output_path, current_date.year(), month_name);
+        create_dir_all(&index_dir).await?;
 
         let mut file = File::create(format!("{}/{}", index_dir, "index.html"))?;
         let mut month_posts: Vec<&HydratedPost> = posts
