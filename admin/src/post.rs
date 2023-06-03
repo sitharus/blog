@@ -28,6 +28,7 @@ struct NewPost<'a> {
     common: Common,
     title: &'a str,
     body: &'a str,
+    slug: &'a str,
     date: &'a NaiveDate,
     status: PostStatus,
 }
@@ -38,6 +39,7 @@ struct EditPost<'a> {
     common: Common,
     title: &'a str,
     body: &'a str,
+    slug: &'a str,
     date: &'a NaiveDate,
     status: PostStatus,
 }
@@ -48,6 +50,7 @@ struct NewPostRequest {
     body: String,
     date: NaiveDate,
     status: PostStatus,
+    slug: String,
 }
 
 #[derive(Template)]
@@ -72,7 +75,11 @@ pub async fn new_post(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
         let req: NewPostRequest = post_body(request)?;
 
         let invalid_chars = Regex::new(r"[^a-z0-9_-]+")?;
-        let mut initial_slug = req.title.clone();
+        let mut initial_slug = if req.slug == "" {
+            req.title.clone()
+        } else {
+            req.slug.clone()
+        };
         initial_slug.make_ascii_lowercase();
         let slug = invalid_chars
             .replace_all(&initial_slug, " ")
@@ -103,6 +110,7 @@ VALUES($1, $6, current_timestamp, current_timestamp, $5, $2, $3, $4)"#,
                 body: req.body.as_str(),
                 status: req.status,
                 date: &req.date,
+                slug: final_slug,
             };
             render_html(content)
         };
@@ -112,6 +120,7 @@ VALUES($1, $6, current_timestamp, current_timestamp, $5, $2, $3, $4)"#,
         common,
         title: "",
         body: "",
+        slug: "",
         status: PostStatus::Draft,
         date: &Utc::now().date_naive(),
     };
@@ -132,11 +141,12 @@ pub async fn edit_post(
         let req: NewPostRequest = post_body(request)?;
         let status = req.status.clone();
         query!(
-            "UPDATE posts SET title=$1, body=$2, state=$3, post_date = $4 WHERE id=$5",
+            "UPDATE posts SET title=$1, body=$2, state=$3, post_date = $4, url_slug=$5 WHERE id=$6",
             req.title,
             req.body,
             req.status as PostStatus,
             req.date,
+            req.slug,
             id
         )
         .execute(&mut connection)
@@ -146,7 +156,7 @@ pub async fn edit_post(
         }
     }
     let post = sqlx::query!(
-        r#"SELECT title, body, state as "state: PostStatus", post_date  FROM posts WHERE id = $1"#,
+        r#"SELECT title, body, url_slug, state as "state: PostStatus", post_date  FROM posts WHERE id = $1"#,
         id
     )
     .fetch_one(&mut connection)
@@ -160,6 +170,7 @@ pub async fn edit_post(
         body: &post.body,
         status: post.state,
         date: &post.post_date,
+        slug: &post.url_slug,
     };
     render_html(content)
 }
