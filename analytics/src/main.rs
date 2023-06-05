@@ -1,6 +1,7 @@
 use async_std::task;
 use chrono::{DateTime, FixedOffset, Utc};
 use lazy_static::lazy_static;
+use percent_encoding::percent_decode_str;
 use regex::{Match, Regex};
 use sqlx::types::ipnetwork::IpNetwork;
 use sqlx::{query, Connection, PgConnection};
@@ -82,7 +83,7 @@ async fn parse_line(line: String, connection: &mut PgConnection) {
                 user_id: none_if_dash(parts.get(3)),
                 date_time: datetime.into(),
                 method: parts.get(5).unwrap().as_str(),
-                path,
+                path: &percent_decode_str(path).decode_utf8_lossy(),
                 protocol: parts.get(7).unwrap().as_str(),
                 response_code,
                 response_size,

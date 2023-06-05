@@ -1,5 +1,5 @@
 use crate::database::connect_db;
-use crate::types::{CommonData, HydratedComment, HydratedPost, Link};
+use crate::types::{CommonData, HydratedComment, HydratedPost, Link, PageLink};
 use crate::utils::render_html;
 use anyhow::anyhow;
 use askama::Template;
@@ -65,6 +65,10 @@ pub async fn get_common(connection: &mut PgConnection) -> anyhow::Result<CommonD
     .fetch_all(&mut *connection)
     .await?;
 
+    let page_links = query_as!(PageLink, "SELECT title, url_slug FROM pages ORDER BY title")
+        .fetch_all(&mut *connection)
+        .await?;
+
     let earliest_post = query!("SELECT post_date FROM posts ORDER BY post_date ASC LIMIT 1")
         .fetch_one(&mut *connection)
         .await?;
@@ -92,5 +96,6 @@ pub async fn get_common(connection: &mut PgConnection) -> anyhow::Result<CommonD
             .to_owned(),
         archive_years: years,
         links,
+        page_links,
     })
 }

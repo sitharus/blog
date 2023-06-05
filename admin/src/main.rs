@@ -20,6 +20,7 @@ mod dashboard;
 mod filters;
 mod generator;
 mod links;
+mod page;
 mod post;
 mod response;
 mod session;
@@ -128,6 +129,9 @@ async fn process(request: &cgi::Request, query_string: &str) -> anyhow::Result<c
             "comments" => comments::comment_list().await,
             "moderate_comment" => comments::moderate_comment(request).await,
             "preview" => preview_page(request).await,
+            "manage_pages" => page::manage_pages().await,
+            "new_page" => page::new_page(request).await,
+            "edit_page" => page::edit_post(request, query).await,
             _ => do_404().await,
         }
     }

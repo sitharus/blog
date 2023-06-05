@@ -22,6 +22,11 @@ pub struct Link {
     pub destination: String,
 }
 
+pub struct PageLink {
+    pub title: String,
+    pub url_slug: String,
+}
+
 pub struct CommonData {
     pub base_url: String,
     pub static_base_url: String,
@@ -29,6 +34,7 @@ pub struct CommonData {
     pub blog_name: String,
     pub archive_years: Vec<i32>,
     pub links: Vec<Link>,
+    pub page_links: Vec<PageLink>,
 }
 
 #[derive(serde::Deserialize, sqlx::Type, fmt::Debug, PartialEq, Clone)]

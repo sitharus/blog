@@ -19,6 +19,14 @@
 			<a href="{{common.base_url}}">Home</a>
 		</section>
 		<section>
+			<h1>Pages</h1>
+			<ul>
+				{% for page in common.page_links %}
+					<li><a href="{{common.base_url}}{{page.url_slug}}.html">{{page.title}}</a></li>
+				{% endfor %}
+			</ul>
+		</section>
+		<section>
 			<h1>Archives</h1>
 			<ul>
 			{% for year in common.archive_years %}

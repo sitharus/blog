@@ -8,6 +8,7 @@ pub enum AdminMenuPages {
     Settings,
     Links,
     Comments,
+    Pages,
 }
 impl fmt::Display for AdminMenuPages {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -19,6 +20,7 @@ impl fmt::Display for AdminMenuPages {
             AdminMenuPages::Settings => write!(f, "settings"),
             AdminMenuPages::Links => write!(f, "links"),
             AdminMenuPages::Comments => write!(f, "comments"),
+            AdminMenuPages::Pages => write!(f, "pages"),
         }
     }
 }

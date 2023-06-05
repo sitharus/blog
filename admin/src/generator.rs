@@ -68,6 +68,15 @@ struct AtomFeed<'a> {
     date: DateTime<Utc>,
 }
 
+#[derive(Template)]
+#[template(path = "generated/page.html")]
+struct Page<'a> {
+    common: &'a CommonData,
+    title: String,
+    body: String,
+    last_updated: DateTime<Utc>,
+}
+
 pub async fn preview_page(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
     let mut connection = connect_db().await?;
     let common = get_common(&mut connection).await?;
@@ -153,6 +162,7 @@ ORDER BY post_date DESC"
     regenerate_year_index_pages(&output_path, &posts, &common).await?;
     regenerate_rss_feed(&output_path, &posts, &common).await?;
     regenerate_atom_feed(&output_path, &posts, &common).await?;
+    regenerate_pages(&output_path, &mut connection, &common).await?;
 
     Ok(redirect_response("dashboard"))
 }
@@ -318,5 +328,29 @@ async fn regenerate_year_index_pages(
             .unwrap();
     }
 
+    Ok(())
+}
+
+async fn regenerate_pages(
+    output_path: &String,
+    connection: &mut sqlx::PgConnection,
+    common: &CommonData,
+) -> anyhow::Result<()> {
+    let pages = query!("SELECT title, url_slug, body, date_updated FROM pages")
+        .fetch_all(connection)
+        .await?;
+
+    for page in pages {
+        let mut file = File::create(format!("{}/{}.html", output_path, page.url_slug))?;
+        let page = Page {
+            common,
+            title: page.title,
+            body: page.body,
+            last_updated: page.date_updated,
+        }
+        .render()?;
+
+        write!(&mut file, "{}", page)?;
+    }
     Ok(())
 }
