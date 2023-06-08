@@ -2,6 +2,7 @@ use super::{CommonData, HydratedPost};
 use chrono::{offset::Utc, DateTime, Datelike, Month, NaiveDate};
 use num_traits::FromPrimitive;
 use ordinal::Ordinal;
+use pulldown_cmark::{Event, Tag};
 
 pub fn posturl(post: &HydratedPost, common: &CommonData) -> ::askama::Result<String> {
     let month = Month::from_u32(post.post_date.month())
@@ -73,4 +74,25 @@ pub fn format_weekday(date: &NaiveDate) -> ::askama::Result<String> {
     let weekday = date.weekday();
     let day = Ordinal(date.day());
     Ok(format!("{} {}", weekday, day))
+}
+
+pub fn format_markdown<S>(content: S) -> ::askama::Result<String>
+where
+    S: AsRef<str>,
+{
+    let parser = pulldown_cmark::Parser::new(content.as_ref()).map(|event| match &event {
+        Event::Start(tag) => match tag {
+            Tag::Image { .. } => Event::Text("StartImage".into()),
+            _ => event,
+        },
+        Event::End(tag) => match tag {
+            Tag::Image { .. } => Event::Text("End Image".into()),
+            _ => event,
+        },
+        _ => event,
+    });
+
+    let mut html_output = String::new();
+    pulldown_cmark::html::push_html(&mut html_output, parser);
+    Ok(html_output)
 }

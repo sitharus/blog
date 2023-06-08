@@ -9,7 +9,7 @@ edition = "2021"
 shared = { path = "../shared" }
 
 anyhow = "1.0.70"
-askama = { version = "0.12.0", features = ["markdown"] }
+askama = { version = "0.12.0" }
 async-std = "1.12.0"
 bcrypt = "0.14.0"
 cgi = "0.6.0"

@@ -10,7 +10,7 @@
 				{%- endmatch -%}
 			</p>
 		</header>
-		{{ post.body.clone()|markdown }}
+		{{ post.body.clone()|format_markdown|safe }}
 
 		<footer>
 			<a href="{{post|posturl(common)}}#comments"> {{post.comment_count.unwrap_or(0)}} {{"comment"|pluralise(post.comment_count)}}
