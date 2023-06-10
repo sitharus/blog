@@ -15,12 +15,21 @@
 		<thead>
 			<tr>
 				<th>Id</th>
-				<th>Uploaded</th>
+				<th>Name</th>
 				<th>Preview</th>
 				<th>Actions</th>
 			</tr>
 		</thead>
 		<tbody>
+			{% for item in media %}
+				<tr>
+					<td>{{item.id}}</td>
+					<td>{{item.file}}</td>
+					<td><img src="{{common.media_base_url}}{{item.metadata.thumbnail_name}}"></td>
+					<td></td>
+						
+				</tr>
+			{% endfor %}
 
 		</tbody>
 	</table>

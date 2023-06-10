@@ -12,7 +12,7 @@
 		<title>{{post.title}}</title>
 		<link>{{post|posturl(common)}}</link>
 		<pubDate>{{post.post_date|format_rfc2822_date}}</pubDate>
-		<description>{{post.body.clone()|format_markdown}}</description>
+		<description>{{post.body.clone()|format_markdown(common)}}</description>
 	</item>
 	{% endfor %}
   </channel>

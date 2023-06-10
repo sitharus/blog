@@ -401,3 +401,13 @@ summary {
 		margin-top: 0;
 	}
 }
+
+img {
+	object-fit: contain;
+	width: 100%;
+}
+
+picture {
+	object-fit: contain;
+	width: 100%;
+}

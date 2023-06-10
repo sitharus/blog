@@ -14,7 +14,7 @@
 			<header>
 				<h1>{{ title }}</h1>
 			</header>
-			{{ body.clone()|format_markdown|safe }}
+			{{ body.clone()|format_markdown(common)|safe }}
 
 			<footer>
 				Last updated {{last_updated|format_human_datetime}}

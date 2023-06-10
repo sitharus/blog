@@ -1,11 +1,13 @@
 use crate::database::connect_db;
-use crate::types::{CommonData, HydratedComment, HydratedPost, Link, PageLink};
+use crate::types::{
+    CommonData, HydratedComment, HydratedPost, ImageMetadata, Link, Media, PageLink,
+};
 use crate::utils::render_html;
 use anyhow::anyhow;
 use askama::Template;
 use cgi::text_response;
 use chrono::{Datelike, Utc};
-use sqlx::{postgres::PgConnection, query, query_as};
+use sqlx::{postgres::PgConnection, query, query_as, types::Json};
 use std::collections::HashMap;
 pub mod filters;
 
@@ -77,6 +79,22 @@ pub async fn get_common(connection: &mut PgConnection) -> anyhow::Result<CommonD
     let mut years: Vec<i32> = (earliest_year..=current_year).collect();
     years.reverse();
 
+    let media_rows =
+        query!(r#"SELECT id, file, metadata AS "metadata: Json<ImageMetadata>"  FROM media"#)
+            .fetch_all(&mut *connection)
+            .await?;
+
+    let media = HashMap::from_iter(media_rows.into_iter().map(|m| -> (i32, Media) {
+        (
+            m.id,
+            Media {
+                id: m.id,
+                file: m.file,
+                metadata: m.metadata.unwrap().as_ref().to_owned(),
+            },
+        )
+    }));
+
     Ok(CommonData {
         base_url: settings
             .get("base_url")
@@ -94,8 +112,13 @@ pub async fn get_common(connection: &mut PgConnection) -> anyhow::Result<CommonD
             .get("comment_cgi_url")
             .ok_or(anyhow!("No CGI url set"))?
             .to_owned(),
+        media_base_url: settings
+            .get("media_base_url")
+            .ok_or(anyhow!("No media url set"))?
+            .to_owned(),
         archive_years: years,
         links,
         page_links,
+        media,
     })
 }

@@ -76,17 +76,39 @@ pub fn format_weekday(date: &NaiveDate) -> ::askama::Result<String> {
     Ok(format!("{} {}", weekday, day))
 }
 
-pub fn format_markdown<S>(content: S) -> ::askama::Result<String>
+pub fn format_markdown<S>(content: S, common: &CommonData) -> ::askama::Result<String>
 where
     S: AsRef<str>,
 {
     let parser = pulldown_cmark::Parser::new(content.as_ref()).map(|event| match &event {
+        /*
+        An image is represented as three events: Start(Tag::Image) Text(alt text) End(Tag::Image)
+        So I split the alt attribute between start and end. Fortunately I only need to do
+        the image lookup once.
+        */
         Event::Start(tag) => match tag {
-            Tag::Image { .. } => Event::Text("StartImage".into()),
+            Tag::Image(_link_type, destination, title) if destination.starts_with("!!") => {
+                let image_id: i32 = destination[2..].parse().unwrap();
+                let image = common.media.get(&image_id).unwrap();
+                let dest = format!("{}{}", common.media_base_url, image.metadata.fullsize_name);
+                let mut html = String::new();
+
+                html.push_str("<picture>");
+                html.push_str(&format!(
+                    r#"<source srcset="{}" type="{}">"#,
+                    image.metadata.fullsize_name, image.metadata.content_type
+                ));
+
+                html.push_str(&format!(r#"<img src="{}" title="{}" alt=""#, dest, title));
+
+                Event::Html(html.into())
+            }
             _ => event,
         },
         Event::End(tag) => match tag {
-            Tag::Image { .. } => Event::Text("End Image".into()),
+            Tag::Image(_link_type, destination, _title) if destination.starts_with("!!") => {
+                Event::Html(r#""></picture>"#.into())
+            }
             _ => event,
         },
         _ => event,

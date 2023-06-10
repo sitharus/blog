@@ -17,7 +17,7 @@
         <published>{{post.post_date|format_rfc3339_date}}</published>
 		<updated>{{post.post_date|format_rfc3339_date}}</updated>
 		<content type="html">
-			{{post.body.clone()|format_markdown }}
+			{{post.body.clone()|format_markdown(common)}}
 		</content>
 		<author>
 			<name>{%- match post.author_name -%}
