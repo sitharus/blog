@@ -5,6 +5,7 @@ use askama::Template;
 use async_std::task;
 use cgi;
 use generator::preview_page;
+use media::manage_media;
 use serde::Deserialize;
 use serde_querystring::{from_bytes, ParseMode};
 use session::SessionError;
@@ -20,6 +21,7 @@ mod dashboard;
 mod filters;
 mod generator;
 mod links;
+mod media;
 mod page;
 mod post;
 mod response;
@@ -132,6 +134,7 @@ async fn process(request: &cgi::Request, query_string: &str) -> anyhow::Result<c
             "manage_pages" => page::manage_pages().await,
             "new_page" => page::new_page(request).await,
             "edit_page" => page::edit_post(request, query).await,
+            "media" => manage_media(request).await,
             _ => do_404().await,
         }
     }

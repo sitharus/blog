@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1> Media </h1>
+<section>
+	<form method="POST" enctype="multipart/form-data">
+		<label>File
+		<input type="file" name="media">
+		</label>
+		<button type="submit">Upload</button>
+	</form>
+</section>
+<section>
+	<table>
+		<thead>
+			<tr>
+				<th>Id</th>
+				<th>Uploaded</th>
+				<th>Preview</th>
+				<th>Actions</th>
+			</tr>
+		</thead>
+		<tbody>
+
+		</tbody>
+	</table>
+</section>
+{% endblock %}

@@ -17,6 +17,8 @@ struct Settings {
     base_url: String,
     static_base_url: String,
     comment_cgi_url: String,
+    media_path: String,
+    media_base_url: String,
 }
 
 pub async fn render(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
@@ -30,6 +32,8 @@ pub async fn render(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
             "base_url",
             "comment_cgi_url",
             "static_base_url",
+            "media_path",
+            "media_base_url",
         ] {
             if let Some(value) = content.get(setting) {
                 query!(
@@ -66,6 +70,14 @@ pub async fn render(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
         .get("comment_cgi_url")
         .unwrap_or(&String::from("/cgi-bin/blog.cgi"))
         .to_owned();
+    let media_path = settings_lookup
+        .get("media_path")
+        .unwrap_or(&String::from(""))
+        .to_owned();
+    let media_base_url = settings_lookup
+        .get("media_base_url")
+        .unwrap_or(&String::from(""))
+        .to_owned();
 
     let common = get_common(&mut connection, AdminMenuPages::Settings).await?;
     let page = Settings {
@@ -74,6 +86,8 @@ pub async fn render(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
         base_url,
         static_base_url,
         comment_cgi_url,
+        media_path,
+        media_base_url,
     };
     Ok(cgi::html_response(200, page.render().unwrap()))
 }
