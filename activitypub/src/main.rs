@@ -53,7 +53,7 @@ async fn process(request: cgi::Request) -> anyhow::Result<cgi::Response> {
                 Ok(cgi::text_response(400, "Bad request - only GET supported"))
             }
         }
-        "/activitypub/blog" => actor(&request, fedi_base, settings),
+        "/activitypub/blog" => actor(&request, actor_name.into(), fedi_base, settings),
         "/activitypub/inbox" => Ok(cgi::text_response(404, "inbox")),
         "/activitypub/outbox" => outbox(&request, &mut connection).await,
         "/activitypub/followers" => Ok(cgi::text_response(404, "followers")),
@@ -64,13 +64,14 @@ async fn process(request: cgi::Request) -> anyhow::Result<cgi::Response> {
 
 fn actor(
     request: &cgi::Request,
+    actor_name: String,
     fedi_base: String,
     settings: Settings,
 ) -> anyhow::Result<cgi::Response> {
     if request.method() == "GET" {
         let actor = Actor::new(
             fedi_base,
-            settings.blog_name,
+            actor_name,
             "blog".into(),
             settings.fedi_public_key_pem,
         );
