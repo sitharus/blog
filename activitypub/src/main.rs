@@ -32,6 +32,7 @@ async fn process(request: cgi::Request) -> anyhow::Result<cgi::Response> {
     let actor_uri = format!("{}{}", fedi_base, actor_name);
 
     match original_uri.path() {
+        "/.well-known/host-meta" => host_meta(&settings),
         "/.well-known/webfinger" => {
             if request.method() == "GET" {
                 let resource = query_string.get("resource");
@@ -72,7 +73,7 @@ fn actor(
         let actor = Actor::new(
             fedi_base,
             actor_name,
-            settings.blog_name,
+            "blog".into(),
             settings.fedi_public_key_pem,
         );
         jsonld_response(&actor)
@@ -135,6 +136,30 @@ where
         )
         .body(body)?;
     Ok(response)
+}
+
+fn host_meta(settings: &Settings) -> anyhow::Result<cgi::Response> {
+    let body = format!(
+        r#"<?xml version="1.0" encoding="UTF-8"?>
+<XRD xmlns="http://docs.oasis-open.org/ns/xri/xrd-1.0">
+  <Link rel="lrdd" template="https://{}/.well-known/webfinger?resource={{uri}}"/>
+</XRD>"#,
+        settings.canonical_hostname
+    );
+
+    let body_content = body.as_bytes().to_vec();
+
+    Ok(response::Builder::new()
+        .status(200)
+        .header(
+            header::CONTENT_LENGTH,
+            format!("{}", body_content.len()).as_str(),
+        )
+        .header(
+            header::CONTENT_TYPE,
+            r#"application/xrd+xml; charset=utf-8"#,
+        )
+        .body(body_content)?)
 }
 
 /*

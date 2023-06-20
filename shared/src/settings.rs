@@ -1,6 +1,5 @@
 use sqlx::{query, PgConnection};
 
-use anyhow::anyhow;
 use std::{
     collections::HashMap,
     fmt::{self, Display},
