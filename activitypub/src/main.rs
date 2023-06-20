@@ -72,7 +72,7 @@ fn actor(
         let actor = Actor::new(
             fedi_base,
             actor_name,
-            "blog".into(),
+            settings.blog_name,
             settings.fedi_public_key_pem,
         );
         jsonld_response(&actor)
