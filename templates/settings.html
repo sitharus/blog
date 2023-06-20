@@ -5,27 +5,40 @@
 	<form action="" method="POST">
 		<label>
 			Blog name
-			<input type="text" value="{{blog_name}}" name="blog_name">
+			<input type="text" value="{{settings.blog_name}}" name="blog_name">
 		</label>
 		<label>
 			Base URL
-			<input type="text" value="{{base_url}}" name="base_url">
+			<input type="text" value="{{settings.base_url}}" name="base_url">
+		</label>
+		<label>
+			Canonical Hostname (for ActivityPub federation)
+			<input type="text" value="{{settings.canonical_hostname}}" name="canonical_hostname">
 		</label>
 		<label>
 			Comment CGI URL
-			<input type="text" value="{{comment_cgi_url}}" name="comment_cgi_url">
+			<input type="text" value="{{settings.comment_cgi_url}}" name="comment_cgi_url">
 		</label>
 		<label>
 			Static content base URL
-			<input type="text" value="{{static_base_url}}" name="static_base_url">
+			<input type="text" value="{{settings.static_base_url}}" name="static_base_url">
 		</label>
 		<label>
 			Media path (must be web server writable)
-			<input type="text" value="{{media_path}}" name="media_path">
+			<input type="text" value="{{settings.media_path}}" name="media_path">
 		</label>
 		<label>
 			Media base URL
-			<input type="text" value="{{media_base_url}}" name="media_base_url">
+			<input type="text" value="{{settings.media_base_url}}" name="media_base_url">
+		</label>
+
+		<label>
+			ActivityPub Public Key (PEM format)
+			<input type="text" value="{{settings.fedi_public_key_pem}}" name="fedi_public_key_pem">
+		</label>
+		<label>
+			ActivityPub Private Key (PEM format, no password)
+			<input type="text" value="{{settings.fedi_private_key_pem}}" name="fedi_private_key_pem">
 		</label>
 		<button type="submit">Save</button>
 
