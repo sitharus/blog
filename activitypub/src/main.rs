@@ -70,12 +70,7 @@ fn actor(
     settings: Settings,
 ) -> anyhow::Result<cgi::Response> {
     if request.method() == "GET" {
-        let actor = Actor::new(
-            fedi_base,
-            actor_name,
-            "blog".into(),
-            settings.fedi_public_key_pem,
-        );
+        let actor = Actor::new(fedi_base, actor_name, "blog".into(), settings);
         jsonld_response(&actor)
     } else {
         Ok(cgi::text_response(400, "Bad request - only GET supported"))

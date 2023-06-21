@@ -1,4 +1,5 @@
 use serde::Serialize;
+use shared::settings::Settings;
 
 #[derive(Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -14,6 +15,8 @@ pub struct Actor {
     followers: String,
     following: String,
     public_key: PublicKey,
+    name: String,
+    url: String,
 }
 
 #[derive(Serialize, Debug)]
@@ -29,7 +32,7 @@ impl Actor {
         fedi_base: String,
         actor_name: String,
         username: String,
-        public_key_pem: String,
+        settings: Settings,
     ) -> Actor {
         let id = format!("{}{}", fedi_base, actor_name);
         let owner_id = id.clone();
@@ -49,8 +52,10 @@ impl Actor {
             public_key: PublicKey {
                 id: key_id,
                 owner: owner_id,
-                public_key_pem,
+                public_key_pem: settings.fedi_public_key_pem,
             },
+            name: settings.blog_name,
+            url: settings.base_url,
         }
     }
 }
