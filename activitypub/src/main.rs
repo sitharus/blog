@@ -1,7 +1,7 @@
 use activities::{Activity, OrderedCollection};
 use actor::Actor;
 use async_std::task;
-use cgi::http::{header, response, Uri};
+use cgi::http::{header, response, Method, Uri};
 use shared::{
     database::connect_db,
     settings::{get_settings_struct, Settings},
@@ -55,7 +55,7 @@ async fn process(request: cgi::Request) -> anyhow::Result<cgi::Response> {
             }
         }
         "/activitypub/blog" => actor(&request, actor_name.into(), fedi_base, settings),
-        "/activitypub/inbox" => Ok(cgi::text_response(404, "inbox")),
+        "/activitypub/inbox" => inbox(&request).await,
         "/activitypub/outbox" => outbox(&request, &mut connection, settings).await,
         "/activitypub/followers" => followers(&request).await,
         "/activitypub/following" => following(&request).await,
@@ -73,7 +73,27 @@ fn actor(
         let actor = Actor::new(fedi_base, actor_name, "blog".into(), settings);
         jsonld_response(&actor)
     } else {
-        Ok(cgi::text_response(400, "Bad request - only GET supported"))
+        Ok(cgi::text_response(405, "Bad request - only GET supported"))
+    }
+}
+
+async fn inbox(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
+    match request.method() {
+        &Method::GET => {
+            let following: OrderedCollection<String> = activities::OrderedCollection {
+                items: vec![],
+                summary: "Followers".into(),
+            };
+            jsonld_response(&following)
+        }
+        &Method::POST => {
+            let following: OrderedCollection<String> = activities::OrderedCollection {
+                items: vec![],
+                summary: "Followers".into(),
+            };
+            jsonld_response(&following)
+        }
+        _ => Ok(cgi::text_response(405, "Bad request - only GET supported")),
     }
 }
 
@@ -84,7 +104,7 @@ async fn outbox(
 ) -> anyhow::Result<cgi::Response> {
     if request.method() == "GET" {
         let items =
-            query!("SELECT id, title, url_slug, post_date FROM posts ORDER BY post_date DESC")
+            query!("SELECT id, title, url_slug, post_date FROM posts WHERE state='published' ORDER BY post_date DESC")
                 .fetch_all(connection)
                 .await?
                 .into_iter()
@@ -105,7 +125,7 @@ async fn outbox(
         };
         jsonld_response(&outbox)
     } else {
-        Ok(cgi::text_response(400, "Bad request - only GET supported"))
+        Ok(cgi::text_response(405, "Bad request - only GET supported"))
     }
 }
 
@@ -117,7 +137,7 @@ async fn followers(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
         };
         jsonld_response(&following)
     } else {
-        Ok(cgi::text_response(400, "Bad request - only GET supported"))
+        Ok(cgi::text_response(405, "Bad request - only GET supported"))
     }
 }
 
@@ -129,7 +149,7 @@ async fn following(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
         };
         jsonld_response(&following)
     } else {
-        Ok(cgi::text_response(400, "Bad request - only GET supported"))
+        Ok(cgi::text_response(405, "Bad request - only GET supported"))
     }
 }
 
