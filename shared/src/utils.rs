@@ -3,6 +3,8 @@ use std::str::FromStr;
 use anyhow::anyhow;
 use askama::Template;
 use cgi;
+use chrono::{Datelike, Month};
+use num_traits::FromPrimitive;
 use serde::Deserialize;
 use serde_querystring::{from_bytes, from_str, ParseMode};
 
@@ -64,4 +66,16 @@ impl BlogUtils for Option<&String> {
             .parse()
             .map_err(|_| anyhow!("Failed to parse string"))
     }
+}
+
+pub fn blog_post_url(
+    slug: String,
+    post_date: chrono::NaiveDate,
+    base_url: String,
+) -> ::askama::Result<String> {
+    let month = Month::from_u32(post_date.month())
+        .ok_or(::askama::Error::Custom("Could not find month".into()))?
+        .name();
+    let url = format!("{}{}/{}/{}.html", base_url, post_date.year(), month, slug);
+    Ok(url)
 }

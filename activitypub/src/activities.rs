@@ -49,4 +49,5 @@ pub enum Activity {
 pub struct Note {
     pub name: String,
     pub content: String,
+    pub id: String,
 }

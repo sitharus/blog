@@ -5,7 +5,7 @@ use cgi::http::{header, response, Uri};
 use shared::{
     database::connect_db,
     settings::{get_settings_struct, Settings},
-    utils::parse_query_string,
+    utils::{blog_post_url, parse_query_string},
 };
 use sqlx::{query, PgConnection};
 use std::{collections::HashMap, env};
@@ -56,9 +56,9 @@ async fn process(request: cgi::Request) -> anyhow::Result<cgi::Response> {
         }
         "/activitypub/blog" => actor(&request, actor_name.into(), fedi_base, settings),
         "/activitypub/inbox" => Ok(cgi::text_response(404, "inbox")),
-        "/activitypub/outbox" => outbox(&request, &mut connection).await,
-        "/activitypub/followers" => Ok(cgi::text_response(404, "followers")),
-        "/activitypub/following" => Ok(cgi::text_response(404, "following")),
+        "/activitypub/outbox" => outbox(&request, &mut connection, settings).await,
+        "/activitypub/followers" => followers(&request).await,
+        "/activitypub/following" => following(&request).await,
         _ => Ok(cgi::text_response(404, "Not found")),
     }
 }
@@ -80,25 +80,54 @@ fn actor(
 async fn outbox(
     request: &cgi::Request,
     connection: &mut PgConnection,
+    settings: Settings,
 ) -> anyhow::Result<cgi::Response> {
     if request.method() == "GET" {
-        let items = query!("SELECT id, title FROM posts ORDER BY post_date DESC")
-            .fetch_all(connection)
-            .await?
-            .into_iter()
-            .map(|i| {
-                Activity::Note(activities::Note {
-                    name: i.title,
-                    content: "content".into(),
+        let items =
+            query!("SELECT id, title, url_slug, post_date FROM posts ORDER BY post_date DESC")
+                .fetch_all(connection)
+                .await?
+                .into_iter()
+                .map(|i| {
+                    let url =
+                        blog_post_url(i.url_slug, i.post_date, settings.base_url.clone()).unwrap();
+                    Activity::Note(activities::Note {
+                        name: i.title.clone(),
+                        content: format!(r#"New blog post! <a href="{}">{}</a>"#, url, i.title),
+                        id: url,
+                    })
                 })
-            })
-            .collect();
+                .collect();
 
         let outbox: OrderedCollection<Activity> = activities::OrderedCollection {
             summary: "Outbox".into(),
             items,
         };
         jsonld_response(&outbox)
+    } else {
+        Ok(cgi::text_response(400, "Bad request - only GET supported"))
+    }
+}
+
+async fn followers(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
+    if request.method() == "GET" {
+        let following: OrderedCollection<String> = activities::OrderedCollection {
+            items: vec![],
+            summary: "Followers".into(),
+        };
+        jsonld_response(&following)
+    } else {
+        Ok(cgi::text_response(400, "Bad request - only GET supported"))
+    }
+}
+
+async fn following(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
+    if request.method() == "GET" {
+        let following: OrderedCollection<String> = activities::OrderedCollection {
+            items: vec![],
+            summary: "Following".into(),
+        };
+        jsonld_response(&following)
     } else {
         Ok(cgi::text_response(400, "Bad request - only GET supported"))
     }

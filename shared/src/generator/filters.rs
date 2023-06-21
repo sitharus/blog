@@ -1,3 +1,5 @@
+use crate::utils::blog_post_url;
+
 use super::{CommonData, HydratedPost};
 use chrono::{offset::Utc, DateTime, Datelike, Month, NaiveDate};
 use num_traits::FromPrimitive;
@@ -5,17 +7,11 @@ use ordinal::Ordinal;
 use pulldown_cmark::{Event, Tag};
 
 pub fn posturl(post: &HydratedPost, common: &CommonData) -> ::askama::Result<String> {
-    let month = Month::from_u32(post.post_date.month())
-        .ok_or(::askama::Error::Custom("Could not find month".into()))?
-        .name();
-    let url = format!(
-        "{}{}/{}/{}.html",
-        common.base_url,
-        post.post_date.year(),
-        month,
-        post.url_slug
-    );
-    Ok(url)
+    blog_post_url(
+        post.url_slug.clone(),
+        post.post_date,
+        common.base_url.clone(),
+    )
 }
 
 pub fn month_name(month: u32) -> ::askama::Result<String> {
