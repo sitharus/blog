@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::activities::{self, Activity, Follow, OrderedCollection};
+use crate::activities::{Follow, OrderedCollection};
 use crate::http_signatures;
 use crate::utils::jsonld_response;
 use anyhow::anyhow;
@@ -49,7 +49,6 @@ pub async fn inbox(
 }
 
 pub async fn reprocess(
-    request: &cgi::Request,
     query_string: &HashMap<String, String>,
     connection: &mut PgConnection,
     settings: &Settings,
@@ -104,7 +103,7 @@ async fn process_follow(
 		.execute(&mut *connection)
 		.await?;
 
-    let accept = req.accept("".into());
+    let accept = req.accept(settings.activitypub_actor_uri());
 
     http_signatures::sign_and_send(
         ureq::post(&inbox).set(header::CONTENT_TYPE.as_str(), "application/activity+json"),

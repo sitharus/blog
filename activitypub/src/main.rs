@@ -59,7 +59,7 @@ async fn process(request: cgi::Request) -> anyhow::Result<cgi::Response> {
         "/activitypub/blog" => actor(&request, settings),
         "/activitypub/inbox" => inbox::inbox(&request, &mut connection, &settings).await,
         "/activitypub/inbox/reprocess" => {
-            inbox::reprocess(&request, &query_string, &mut connection, &settings).await
+            inbox::reprocess(&query_string, &mut connection, &settings).await
         }
         "/activitypub/outbox" => outbox(&request, &mut connection, settings).await,
         "/activitypub/followers" => followers(&request).await,

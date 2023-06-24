@@ -1,8 +1,6 @@
 use serde::Serialize;
 use shared::settings::Settings;
 
-use crate::activities;
-
 #[derive(Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Actor {
