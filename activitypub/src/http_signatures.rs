@@ -25,7 +25,9 @@ where
     let body = serde_json::to_vec(&body)?;
     let mut rng = rand::thread_rng();
 
-    let date = chrono::Utc::now().to_rfc2822();
+    let date = chrono::Utc::now()
+        .format("%a, %d %b %Y %H:%M:%S GMT")
+        .to_string();
     let request_url = request.request_url()?;
 
     let host = request_url.host();
