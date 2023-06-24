@@ -62,7 +62,7 @@ async fn process(request: cgi::Request) -> anyhow::Result<cgi::Response> {
             inbox::reprocess(&query_string, &mut connection, &settings).await
         }
         "/activitypub/outbox" => outbox(&request, &mut connection, settings).await,
-        "/activitypub/followers" => followers(&request).await,
+        "/activitypub/followers" => followers(&request, &mut connection).await,
         "/activitypub/following" => following(&request).await,
         _ => Ok(cgi::text_response(404, "Not found")),
     }
@@ -109,13 +109,20 @@ async fn outbox(
     }
 }
 
-async fn followers(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
+async fn followers(
+    request: &cgi::Request,
+    connection: &mut PgConnection,
+) -> anyhow::Result<cgi::Response> {
     if request.method() == "GET" {
-        let following: OrderedCollection<String> = activities::OrderedCollection {
-            items: vec![],
+        let followers =
+            query!("SELECT actor FROM activitypub_known_actors WHERE is_following=true")
+                .fetch_all(connection)
+                .await?;
+        let followers_collection: OrderedCollection<String> = activities::OrderedCollection {
+            items: followers.into_iter().map(|f| f.actor.unwrap()).collect(),
             summary: "Followers".into(),
         };
-        jsonld_response(&following)
+        jsonld_response(&followers_collection)
     } else {
         Ok(cgi::text_response(405, "Bad request - only GET supported"))
     }
