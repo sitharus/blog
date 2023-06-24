@@ -24,8 +24,13 @@ pub async fn inbox(
         }
         &Method::POST => {
             let mut body: Value = serde_json::from_slice(request.body())?;
-            let signature = request.headers().get(cgi::http::header::AUTHORIZATION);
+            let signature = request.headers().get("Signature");
+            let digest = request.headers().get("Digest");
             body["http_signature"] = match signature {
+                Some(val) => serde_json::Value::String(val.to_str().unwrap_or("").into()),
+                _ => Value::Null,
+            };
+            body["digest"] = match digest {
                 Some(val) => serde_json::Value::String(val.to_str().unwrap_or("").into()),
                 _ => Value::Null,
             };

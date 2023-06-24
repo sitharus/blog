@@ -44,7 +44,7 @@ where
     let b64_sig = general_purpose::STANDARD.encode(signature.to_bytes());
 
     let signature_header = format!(
-        "keyId=\"{}\",headers=\"(request-target) host date digest\",signature=\"{}\"",
+        "keyId=\"{}\",algorithm=\"rsa-sha256\",headers=\"(request-target) host date digest\",signature=\"{}\"",
         settings.activitypub_key_id(),
         b64_sig
     );
