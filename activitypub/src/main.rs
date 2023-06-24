@@ -2,6 +2,7 @@ use activities::{Activity, OrderedCollection};
 use actor::Actor;
 use async_std::task;
 use cgi::http::{header, response, Method, Uri};
+use serde_json::Value;
 use shared::{
     database::connect_db,
     settings::{get_settings_struct, Settings},
@@ -55,7 +56,7 @@ async fn process(request: cgi::Request) -> anyhow::Result<cgi::Response> {
             }
         }
         "/activitypub/blog" => actor(&request, actor_name.into(), fedi_base, settings),
-        "/activitypub/inbox" => inbox(&request).await,
+        "/activitypub/inbox" => inbox(&request, &mut connection).await,
         "/activitypub/outbox" => outbox(&request, &mut connection, settings).await,
         "/activitypub/followers" => followers(&request).await,
         "/activitypub/following" => following(&request).await,
@@ -77,7 +78,10 @@ fn actor(
     }
 }
 
-async fn inbox(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
+async fn inbox(
+    request: &cgi::Request,
+    connection: &mut PgConnection,
+) -> anyhow::Result<cgi::Response> {
     match request.method() {
         &Method::GET => {
             let following: OrderedCollection<String> = activities::OrderedCollection {
@@ -87,6 +91,12 @@ async fn inbox(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
             jsonld_response(&following)
         }
         &Method::POST => {
+            let body: Value = serde_json::from_slice(request.body())?;
+
+            query!("INSERT INTO activitypub_inbox(body) VALUES($1)", body)
+                .execute(connection)
+                .await?;
+
             let following: OrderedCollection<String> = activities::OrderedCollection {
                 items: vec![],
                 summary: "Followers".into(),
