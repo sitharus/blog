@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use base64::{engine::general_purpose, Engine as _};
 use cgi::http::header;
 use rand;
@@ -20,6 +21,7 @@ pub fn sign_and_send<T>(request: Request, body: T, settings: &Settings) -> anyho
 where
     T: Serialize,
 {
+    dbg!(serde_json::to_string(&body)?);
     let body = serde_json::to_vec(&body)?;
     let mut rng = rand::thread_rng();
 
@@ -48,13 +50,21 @@ where
         settings.activitypub_key_id(),
         b64_sig
     );
-    let content_length = body.len().to_string().to_owned();
 
     let result = request
         .set(header::DATE.as_str(), &date.to_owned())
-        .set(header::CONTENT_LENGTH.as_str(), &content_length)
         .set("Signature", &signature_header)
         .set("Digest", &digest_header)
-        .send(body.as_slice())?;
-    Ok(result)
+        .send(body.as_slice());
+
+    match result {
+        Err(ureq::Error::Status(code, response)) => {
+            dbg!(code);
+            dbg!(response.into_string().unwrap_or("--NO BODY--".into()));
+
+            Err(anyhow!(code))
+        }
+        Err(a) => Err(anyhow!(a)),
+        Ok(a) => Ok(a),
+    }
 }

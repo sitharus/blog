@@ -110,13 +110,10 @@ async fn process_follow(
 
     let accept = req.accept(settings.activitypub_actor_uri());
 
-    let response = http_signatures::sign_and_send(
+    http_signatures::sign_and_send(
         ureq::post(&inbox).set(header::CONTENT_TYPE.as_str(), "application/activity+json"),
         accept,
         settings,
     )?;
-
-    dbg!(response.into_string());
-
     Ok(())
 }
