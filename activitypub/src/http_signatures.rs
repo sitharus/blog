@@ -32,7 +32,7 @@ where
 
     let host = request_url.host();
     let path = request_url.path();
-    let method = request.method();
+    let method = request.method().to_lowercase();
 
     let private_key = RsaPrivateKey::from_pkcs1_pem(&settings.fedi_private_key_pem)?;
     let signing_key = SigningKey::<Sha256>::new(private_key);

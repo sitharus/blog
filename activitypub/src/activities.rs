@@ -54,20 +54,13 @@ pub struct Note {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct BasicActor {
-    #[serde(rename = "type")]
-    actor_type: String,
-    name: String,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Accept {
     #[serde(rename = "context")]
     context: String,
     #[serde(rename = "type")]
     activity_type: String,
     pub object: Activity,
-    pub actor: BasicActor,
+    pub actor: String,
 }
 
 impl Accept {
@@ -76,10 +69,7 @@ impl Accept {
             context: "https://www.w3.org/ns/activitystreams".into(),
             activity_type: "Accept".into(),
             object: accepting,
-            actor: BasicActor {
-                actor_type: "Person".into(),
-                name: actor,
-            },
+            actor,
         }
     }
 }
