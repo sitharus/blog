@@ -55,7 +55,7 @@ pub struct Note {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Accept {
-    #[serde(rename = "context")]
+    #[serde(rename = "@context")]
     context: String,
     #[serde(rename = "type")]
     activity_type: String,
