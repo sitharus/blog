@@ -34,11 +34,11 @@
 
 		<label>
 			ActivityPub Public Key (PEM format)
-			<input type="text" value="{{settings.fedi_public_key_pem}}" name="fedi_public_key_pem">
+			<textarea name="fedi_public_key_pem" cols="50">{{settings.fedi_public_key_pem}}</textarea>
 		</label>
 		<label>
 			ActivityPub Private Key (PEM format, no password)
-			<input type="text" value="{{settings.fedi_private_key_pem}}" name="fedi_private_key_pem">
+			<textarea name="fedi_private_key_pem" cols="50">{{settings.fedi_private_key_pem}}</textarea>
 		</label>
 		<button type="submit">Save</button>
 

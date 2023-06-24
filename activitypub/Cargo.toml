@@ -17,3 +17,7 @@ serde = { version = "1.0.164", features = ["derive"] }
 serde-querystring = "0.2.1"
 sqlx = { version = "0.6.3", features = ["postgres", "json", "chrono", "runtime-async-std-rustls", "uuid"] }
 serde_json = "1.0.97"
+ureq = { version = "2.7.1", features = ["tls", "json"] }
+rsa = { version = "0.9.2", features = ["sha2"] }
+rand = "0.8.5"
+base64 = "0.21.2"

@@ -1,8 +1,7 @@
 use activities::{Activity, OrderedCollection};
 use actor::Actor;
 use async_std::task;
-use cgi::http::{header, response, Method, Uri};
-use serde_json::Value;
+use cgi::http::{header, response, Uri};
 use shared::{
     database::connect_db,
     settings::{get_settings_struct, Settings},
@@ -10,10 +9,14 @@ use shared::{
 };
 use sqlx::{query, PgConnection};
 use std::{collections::HashMap, env};
+use utils::jsonld_response;
 
 mod activities;
 mod actor;
 mod finger;
+mod http_signatures;
+mod inbox;
+mod utils;
 
 cgi::cgi_try_main! { |request: cgi::Request| -> anyhow::Result<cgi::Response> {
     task::block_on(process(request))
@@ -27,24 +30,22 @@ async fn process(request: cgi::Request) -> anyhow::Result<cgi::Response> {
 
     let settings = get_settings_struct(&mut connection).await?;
 
-    let actor_name = "blog";
-
-    let fedi_base = format!("https://{}/activitypub/", settings.canonical_hostname);
-    let actor_uri = format!("{}{}", fedi_base, actor_name);
-
     match original_uri.path() {
         "/.well-known/host-meta" => host_meta(&settings),
         "/.well-known/webfinger" => {
             if request.method() == "GET" {
                 let resource = query_string.get("resource");
-                let account = format!("acct:{}@{}", actor_name, settings.canonical_hostname);
+                let account = format!(
+                    "acct:{}@{}",
+                    settings.actor_name, settings.canonical_hostname
+                );
 
                 match resource {
                     Some(acct) if acct == &account => {
                         let finger = finger::Finger::new(
-                            actor_name.into(),
-                            settings.canonical_hostname,
-                            actor_uri,
+                            &settings.actor_name,
+                            &settings.canonical_hostname,
+                            &settings.activitypub_actor_uri(),
                         );
                         jrd_response(&finger)
                     }
@@ -55,8 +56,11 @@ async fn process(request: cgi::Request) -> anyhow::Result<cgi::Response> {
                 Ok(cgi::text_response(400, "Bad request - only GET supported"))
             }
         }
-        "/activitypub/blog" => actor(&request, actor_name.into(), fedi_base, settings),
-        "/activitypub/inbox" => inbox(&request, &mut connection).await,
+        "/activitypub/blog" => actor(&request, settings),
+        "/activitypub/inbox" => inbox::inbox(&request, &mut connection, &settings).await,
+        "/activitypub/inbox/reprocess" => {
+            inbox::reprocess(&request, &query_string, &mut connection, &settings).await
+        }
         "/activitypub/outbox" => outbox(&request, &mut connection, settings).await,
         "/activitypub/followers" => followers(&request).await,
         "/activitypub/following" => following(&request).await,
@@ -64,46 +68,12 @@ async fn process(request: cgi::Request) -> anyhow::Result<cgi::Response> {
     }
 }
 
-fn actor(
-    request: &cgi::Request,
-    actor_name: String,
-    fedi_base: String,
-    settings: Settings,
-) -> anyhow::Result<cgi::Response> {
+fn actor(request: &cgi::Request, settings: Settings) -> anyhow::Result<cgi::Response> {
     if request.method() == "GET" {
-        let actor = Actor::new(fedi_base, actor_name, "blog".into(), settings);
+        let actor = Actor::new(settings);
         jsonld_response(&actor)
     } else {
         Ok(cgi::text_response(405, "Bad request - only GET supported"))
-    }
-}
-
-async fn inbox(
-    request: &cgi::Request,
-    connection: &mut PgConnection,
-) -> anyhow::Result<cgi::Response> {
-    match request.method() {
-        &Method::GET => {
-            let following: OrderedCollection<String> = activities::OrderedCollection {
-                items: vec![],
-                summary: "Followers".into(),
-            };
-            jsonld_response(&following)
-        }
-        &Method::POST => {
-            let body: Value = serde_json::from_slice(request.body())?;
-
-            query!("INSERT INTO activitypub_inbox(body) VALUES($1)", body)
-                .execute(connection)
-                .await?;
-
-            let following: OrderedCollection<String> = activities::OrderedCollection {
-                items: vec![],
-                summary: "Followers".into(),
-            };
-            jsonld_response(&following)
-        }
-        _ => Ok(cgi::text_response(405, "Bad request - only GET supported")),
     }
 }
 
@@ -172,22 +142,6 @@ where
         .status(200)
         .header(header::CONTENT_LENGTH, format!("{}", body.len()).as_str())
         .header(header::CONTENT_TYPE, "application/jrd+json")
-        .body(body)?;
-    Ok(response)
-}
-
-pub fn jsonld_response<T>(content: &T) -> anyhow::Result<cgi::Response>
-where
-    T: ?Sized + serde::Serialize,
-{
-    let body = serde_json::to_vec(content)?;
-    let response = response::Builder::new()
-        .status(200)
-        .header(header::CONTENT_LENGTH, format!("{}", body.len()).as_str())
-        .header(
-            header::CONTENT_TYPE,
-            r#"application/ld+json; profile="https://www.w3.org/ns/activitystreams""#,
-        )
         .body(body)?;
     Ok(response)
 }

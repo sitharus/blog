@@ -76,6 +76,21 @@ pub struct Settings {
     pub canonical_hostname: String,
     pub fedi_public_key_pem: String,
     pub fedi_private_key_pem: String,
+    pub actor_name: String,
+}
+
+impl Settings {
+    pub fn activitypub_base(&self) -> String {
+        format!("https://{}/activitypub/", self.canonical_hostname)
+    }
+
+    pub fn activitypub_actor_uri(&self) -> String {
+        format!("{}{}", self.activitypub_base(), self.actor_name)
+    }
+
+    pub fn activitypub_key_id(&self) -> String {
+        format!("{}#main-key", self.activitypub_actor_uri())
+    }
 }
 
 pub async fn get_settings(
@@ -131,8 +146,9 @@ pub async fn get_settings_struct(connection: &mut PgConnection) -> anyhow::Resul
             .unwrap_or(&"Public Key".into())
             .into(),
         fedi_private_key_pem: all_settings
-            .get(&SettingNames::FediPublicKeyPem)
+            .get(&SettingNames::FediPrivateKeyPem)
             .unwrap_or(&"Private Key".into())
             .into(),
+        actor_name: "blog".into(),
     })
 }

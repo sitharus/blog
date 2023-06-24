@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Debug, PartialEq, Clone)]
 #[serde(into = "OrderedCollectionJsonLD<T>")]
@@ -39,15 +39,49 @@ where
     }
 }
 
-#[derive(Serialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type")]
 pub enum Activity {
     Note(Note),
+    Follow(Follow),
 }
 
-#[derive(Serialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Note {
     pub name: String,
     pub content: String,
     pub id: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Accept {
+    #[serde(rename = "type")]
+    activity_type: String,
+    pub object: Activity,
+    pub actor: String,
+}
+
+impl Accept {
+    fn new(actor: String, accepting: Activity) -> Accept {
+        Accept {
+            activity_type: "Accept".into(),
+            object: accepting,
+            actor,
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct Follow {
+    pub object: String,
+    pub actor: String,
+    pub id: String,
+    #[serde(rename = "type")]
+    pub activity_type: String,
+}
+
+impl Follow {
+    pub fn accept(&self, by: String) -> Accept {
+        Accept::new(by, Activity::Follow(self.clone()))
+    }
 }

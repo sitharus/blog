@@ -1,6 +1,8 @@
 use serde::Serialize;
 use shared::settings::Settings;
 
+use crate::activities;
+
 #[derive(Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Actor {
@@ -28,15 +30,12 @@ struct PublicKey {
 }
 
 impl Actor {
-    pub fn new(
-        fedi_base: String,
-        actor_name: String,
-        username: String,
-        settings: Settings,
-    ) -> Actor {
-        let id = format!("{}{}", fedi_base, actor_name);
-        let owner_id = id.clone();
-        let key_id = format!("{}{}#main-key", fedi_base, actor_name);
+    pub fn new(settings: Settings) -> Actor {
+        let fedi_base = settings.activitypub_base();
+        let actor_name = settings.actor_name.clone();
+        let id = settings.activitypub_actor_uri();
+        let owner_id = settings.activitypub_actor_uri();
+        let key_id = settings.activitypub_key_id();
         Actor {
             context: vec![
                 "https://www.w3.org/ns/activitystreams".into(),
@@ -44,7 +43,7 @@ impl Actor {
             ],
             id,
             actor_type: "Person".into(),
-            preferred_username: username,
+            preferred_username: actor_name,
             inbox: format!("{}inbox", fedi_base),
             outbox: format!("{}outbox", fedi_base),
             followers: format!("{}followers", fedi_base),
