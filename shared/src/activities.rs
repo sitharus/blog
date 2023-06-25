@@ -1,4 +1,7 @@
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
+
+pub const PUBLIC_TIMELINE: &str = "https://www.w3.org/ns/activitystreams#Public";
 
 #[derive(Serialize, Debug, PartialEq, Clone)]
 #[serde(into = "OrderedCollectionJsonLD<T>")]
@@ -6,7 +9,7 @@ pub struct OrderedCollection<T>
 where
     T: Serialize + Clone,
 {
-    pub summary: String,
+    pub summary: Option<String>,
     pub items: Vec<T>,
 }
 
@@ -17,7 +20,7 @@ where
     T: Serialize + Clone,
 {
     context: String,
-    summary: String,
+    summary: Option<String>,
     #[serde(rename = "type")]
     collection_type: String,
     total_items: usize,
@@ -44,13 +47,77 @@ where
 pub enum Activity {
     Note(Note),
     Follow(Follow),
+    Create(Create),
+}
+
+impl Activity {
+    pub fn create(actor: String, object: Activity, to: Vec<String>, cc: Vec<String>) -> Self {
+        Self::Create(Create::new(actor, object, to, cc))
+    }
+
+    pub fn note(
+        content: String,
+        id: String,
+        published: chrono::DateTime<Utc>,
+        to: Vec<String>,
+        cc: Vec<String>,
+    ) -> Self {
+        Self::Note(Note::new(content, id, published, to, cc))
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Create {
+    #[serde(rename = "@context")]
+    context: String,
+    actor: String,
+    published: chrono::DateTime<Utc>,
+    to: Vec<String>,
+    cc: Vec<String>,
+    object: Box<Activity>,
+}
+
+impl Create {
+    fn new(actor: String, object: Activity, to: Vec<String>, cc: Vec<String>) -> Create {
+        Self {
+            context: "https://www.w3.org/ns/activitystreams".into(),
+            actor,
+            object: Box::new(object),
+            published: chrono::Utc::now(),
+            to,
+            cc,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Note {
-    pub name: String,
-    pub content: String,
-    pub id: String,
+    #[serde(rename = "@context")]
+    context: String,
+    content: String,
+    id: String,
+    published: chrono::DateTime<Utc>,
+    to: Vec<String>,
+    cc: Vec<String>,
+}
+
+impl Note {
+    fn new(
+        content: String,
+        id: String,
+        published: chrono::DateTime<Utc>,
+        to: Vec<String>,
+        cc: Vec<String>,
+    ) -> Self {
+        Note {
+            context: "https://www.w3.org/ns/activitystreams".into(),
+            content,
+            id,
+            published,
+            to,
+            cc,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

@@ -1,4 +1,3 @@
-use anyhow::anyhow;
 use base64::{engine::general_purpose, Engine as _};
 use cgi::http::header;
 use rand;
@@ -53,20 +52,9 @@ where
         b64_sig
     );
 
-    let result = request
+    Ok(request
         .set(header::DATE.as_str(), &date.to_owned())
         .set("Signature", &signature_header)
         .set("Digest", &digest_header)
-        .send(body.as_slice());
-
-    match result {
-        Err(ureq::Error::Status(code, response)) => {
-            dbg!(code);
-            dbg!(response.into_string().unwrap_or("--NO BODY--".into()));
-
-            Err(anyhow!(code))
-        }
-        Err(a) => Err(anyhow!(a)),
-        Ok(a) => Ok(a),
-    }
+        .send(body.as_slice())?)
 }

@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
-use crate::activities::{Follow, OrderedCollection};
 use crate::http_signatures;
 use crate::utils::jsonld_response;
 use anyhow::anyhow;
 use cgi::http::{header, Method};
 use serde_json::Value;
+use shared::activities::{Follow, OrderedCollection};
 use shared::settings::Settings;
 use sqlx::{query, PgConnection};
 
@@ -16,11 +16,11 @@ pub async fn inbox(
 ) -> anyhow::Result<cgi::Response> {
     match request.method() {
         &Method::GET => {
-            let following: OrderedCollection<String> = OrderedCollection {
+            let inbox: OrderedCollection<String> = OrderedCollection {
                 items: vec![],
-                summary: "Followers".into(),
+                summary: Some("inbox".into()),
             };
-            jsonld_response(&following)
+            jsonld_response(&inbox)
         }
         &Method::POST => {
             let mut body: Value = serde_json::from_slice(request.body())?;
@@ -45,7 +45,7 @@ pub async fn inbox(
 
             let following: OrderedCollection<String> = OrderedCollection {
                 items: vec![],
-                summary: "Followers".into(),
+                summary: Some("inbox".into()),
             };
             jsonld_response(&following)
         }
@@ -81,7 +81,11 @@ async fn process_inbound(
     match body["type"].as_str() {
         Some("Follow") => {
             let req: Follow = serde_json::from_value(body)?;
-            process_follow(req, connection, settings).await
+            if !is_blocked(req.actor.clone(), connection).await? {
+                process_follow(req, connection, settings).await
+            } else {
+                Ok(())
+            }
         }
         _ => Ok(()),
     }
@@ -116,4 +120,16 @@ async fn process_follow(
         settings,
     )?;
     Ok(())
+}
+
+async fn is_blocked(actor: String, connection: &mut PgConnection) -> anyhow::Result<bool> {
+    let server = actor.split('@').last().unwrap_or("");
+    let result = query!("SELECT COUNT(*) FROM activitypub_blocked WHERE (target_type = 'actor' AND target = $1) OR (target_type = 'server' AND target = $2)", actor, server)
+        .fetch_optional(connection)
+        .await?;
+
+    Ok(match result {
+        Some(row) => row.count.unwrap_or_default() > 0,
+        None => false,
+    })
 }

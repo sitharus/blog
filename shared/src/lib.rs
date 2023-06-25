@@ -1,3 +1,4 @@
+pub mod activities;
 pub mod database;
 pub mod generator;
 pub mod settings;
