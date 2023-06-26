@@ -83,40 +83,48 @@ async fn send_actvity(
     inbox: Option<String>,
     settings: &Settings,
 ) -> anyhow::Result<()> {
-    let inbox_uri = get_inbox_for_actor(connection, target.clone(), inbox).await?;
-
-    match http_signatures::sign_and_send(
-        ureq::post(&inbox_uri).set(header::CONTENT_TYPE.as_str(), "application/activity+json"),
-        activity,
-        settings,
-    ) {
-        Err(a) => match a.downcast::<ureq::Error>() {
-            Ok(ureq::Error::Status(code, response)) => {
-                let status = code.to_string();
-                let body = response.into_string().unwrap_or("--NO BODY--".into());
-                query!("INSERT INTO activitypub_delivery_log(activitypub_outbox_id, target, successful, status_code, response_body) VALUES($1, $2, false, $3, $4)", outbox_id, target, status, body)
+    match get_inbox_for_actor(connection, target.clone(), inbox).await {
+        Ok(inbox_uri) => {
+            match http_signatures::sign_and_send(
+                ureq::post(&inbox_uri)
+                    .set(header::CONTENT_TYPE.as_str(), "application/activity+json"),
+                activity,
+                settings,
+            ) {
+                Err(a) => match a.downcast::<ureq::Error>() {
+                    Ok(ureq::Error::Status(code, response)) => {
+                        let status = code.to_string();
+                        let body = response.into_string().unwrap_or("--NO BODY--".into());
+                        query!("INSERT INTO activitypub_delivery_log(activitypub_outbox_id, target, successful, status_code, response_body) VALUES($1, $2, false, $3, $4)", outbox_id, target, status, body)
                     .execute(&mut *connection)
                     .await?;
 
-                bail!("Request failed")
-            }
-            Ok(x) => {
-                query!("INSERT INTO activitypub_delivery_log(activitypub_outbox_id, target, successful, response_body) VALUES($1, $2, false, $3)", outbox_id, target, format!("{:#}",x))
+                        bail!("Request failed")
+                    }
+                    Ok(x) => {
+                        query!("INSERT INTO activitypub_delivery_log(activitypub_outbox_id, target, successful, response_body) VALUES($1, $2, false, $3)", outbox_id, target, format!("{:#}",x))
                     .execute(&mut *connection)
                     .await?;
-                bail!("Request failed")
-            }
-            Err(x) => {
-                query!("INSERT INTO activitypub_delivery_log(activitypub_outbox_id, target, successful, response_body) VALUES($1, $2, false, $3)", outbox_id, target, format!("{:#}",x))
+                        bail!("Request failed")
+                    }
+                    Err(x) => {
+                        query!("INSERT INTO activitypub_delivery_log(activitypub_outbox_id, target, successful, response_body) VALUES($1, $2, false, $3)", outbox_id, target, format!("{:#}",x))
                     .execute(&mut *connection)
                     .await?;
-                bail!("Request failed")
+                        bail!("Request failed")
+                    }
+                },
+                Ok(_) => Ok(()),
             }
-        },
-        Ok(_) => Ok(()),
+        }
+        Err(a) => {
+            query!("INSERT INTO activitypub_delivery_log(activitypub_outbox_id, target, successful, response_body) VALUES($1, $2, false, $3)", outbox_id, target, format!("{:#}",a))
+                    .execute(&mut *connection)
+                    .await?;
+            bail!(a)
+        }
     }
 }
-
 async fn get_inbox_for_actor(
     connection: &mut PgConnection,
     actor: String,
