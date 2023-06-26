@@ -10,7 +10,7 @@ use shared::{
     settings::get_settings_struct,
     utils::{blog_post_url, post_body, render_html, render_redirect},
 };
-use sqlx::{query, types::Json, PgConnection};
+use sqlx::{query, types::Json};
 use uuid::Uuid;
 
 use crate::common::{get_common, Common};
@@ -88,18 +88,18 @@ pub async fn publish_posts(
 pub async fn send(
     request: &cgi::Request,
     query: HashMap<String, String>,
-    connection: &mut PgConnection,
 ) -> anyhow::Result<cgi::Response> {
+    let mut connection = connect_db().await?;
     let id = query.get("id").ok_or(anyhow!("No id"))?.parse::<i32>()?;
-    let settings = get_settings_struct(connection).await?;
+    let settings = get_settings_struct(&mut connection).await?;
     match request.method() {
         &Method::GET => {
-            let common = get_common(connection, crate::types::AdminMenuPages::Posts).await?;
+            let common = get_common(&mut connection, crate::types::AdminMenuPages::Posts).await?;
             let post = query!(
                 "SELECT title, url_slug, post_date FROM posts WHERE id=$1",
                 id
             )
-            .fetch_one(&mut *connection)
+            .fetch_one(&mut connection)
             .await?;
 
             let post_url = blog_post_url(post.url_slug, post.post_date, settings.base_url)?;
@@ -136,10 +136,10 @@ pub async fn send(
                 note_id,
                 Json(create) as _
             )
-            .fetch_one(&mut *connection)
+            .fetch_one(&mut connection)
             .await?;
 
-            query!("INSERT INTO activitypub_outbox_target(activitypub_outbox_id, target) VALUES ($1, $2)", inserted.id, to).execute(&mut *connection).await?;
+            query!("INSERT INTO activitypub_outbox_target(activitypub_outbox_id, target) VALUES ($1, $2)", inserted.id, to).execute(&mut connection).await?;
 
             render_redirect("dashboard")
         }

@@ -137,6 +137,7 @@ async fn process(request: &cgi::Request, query_string: &str) -> anyhow::Result<c
             "edit_page" => page::edit_post(request, query).await,
             "media" => manage_media(request).await,
             "publish_posts" => activitypub::publish_posts(request, query).await,
+            "send_post" => activitypub::send(request, query).await,
             _ => do_404().await,
         }
     }
