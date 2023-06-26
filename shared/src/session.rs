@@ -29,15 +29,15 @@ pub async fn has_valid_session(
                         .await?;
                         let now = Utc::now();
                         if saved_session.expiry < now {
-                            bail!("No")
+                            bail!("Expired")
                         } else {
                             Ok(())
                         }
                     }
-                    _ => bail!("No"),
+                    _ => bail!("No session part in {:?}", cookie_parts),
                 }
             }
-            _ => bail!("No"),
+            _ => bail!("No cookie"),
         }
     }
 }
