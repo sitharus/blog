@@ -58,3 +58,40 @@ where
         .set("Digest", &digest_header)
         .send(body.as_slice())?)
 }
+
+pub fn sign_and_call(request: Request, settings: &Settings) -> anyhow::Result<Response>
+where
+    T: Serialize,
+{
+    let mut rng = rand::thread_rng();
+
+    let date = chrono::Utc::now()
+        .format("%a, %d %b %Y %H:%M:%S GMT")
+        .to_string();
+    let request_url = request.request_url()?;
+
+    let host = request_url.host();
+    let path = request_url.path();
+    let method = request.method().to_lowercase();
+
+    let private_key = RsaPrivateKey::from_pkcs1_pem(&settings.fedi_private_key_pem)?;
+    let signing_key = SigningKey::<Sha256>::new(private_key);
+
+    let signature_string = format!(
+        "(request-target): {} {}\nhost: {}\ndate: {}",
+        method, path, host, date
+    );
+    let signature = signing_key.sign_with_rng(&mut rng, &signature_string.as_bytes());
+    let b64_sig = general_purpose::STANDARD.encode(signature.to_bytes());
+
+    let signature_header = format!(
+        "keyId=\"{}\",algorithm=\"rsa-sha256\",headers=\"(request-target) host date\",signature=\"{}\"",
+        settings.activitypub_key_id(),
+        b64_sig
+    );
+
+    Ok(request
+        .set(header::DATE.as_str(), &date.to_owned())
+        .set("Signature", &signature_header)
+        .call()?)
+}

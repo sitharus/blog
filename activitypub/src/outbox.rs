@@ -8,7 +8,10 @@ use shared::{
 };
 use sqlx::{query, PgConnection};
 
-use crate::{http_signatures, utils::jsonld_response};
+use crate::{
+    http_signatures::{self, sign_and_call},
+    utils::jsonld_response,
+};
 
 pub async fn render(connection: &mut PgConnection) -> anyhow::Result<cgi::Response> {
     let contents = query!("SELECT activity FROM activitypub_outbox ORDER BY created_at DESC")
@@ -83,7 +86,7 @@ async fn send_actvity(
     inbox: Option<String>,
     settings: &Settings,
 ) -> anyhow::Result<()> {
-    match get_inbox_for_actor(connection, target.clone(), inbox).await {
+    match get_inbox_for_actor(connection, target.clone(), inbox, settings).await {
         Ok(inbox_uri) => {
             match http_signatures::sign_and_send(
                 ureq::post(&inbox_uri)
@@ -129,6 +132,7 @@ async fn get_inbox_for_actor(
     connection: &mut PgConnection,
     actor: String,
     inbox: Option<String>,
+    settings: &Settings,
 ) -> anyhow::Result<String> {
     match inbox {
         Some(i) => Ok(i),
@@ -146,12 +150,13 @@ async fn get_inbox_for_actor(
                     let actor_uri = uri_for_actor(&actor)?;
                     let uri_str = actor_uri.as_str();
 
-                    let actor_details: Value = ureq::get(uri_str)
-                        .set(header::ACCEPT.as_str(), "application/jrd+json")
-                        .call()
-                        .map_err(|e| anyhow!("Fetching {}: {:#}", uri_str, e))?
-                        .into_json()
-                        .map_err(|e| anyhow!("Parsing JSON from {}: {:#}", uri_str, e))?;
+                    let actor_details: Value = sign_and_call(
+                        ureq::get(uri_str).set(header::ACCEPT.as_str(), "application/jrd+json"),
+                        settings,
+                    )
+                    .map_err(|e| anyhow!("Fetching {}: {:#}", uri_str, e))?
+                    .into_json()
+                    .map_err(|e| anyhow!("Parsing JSON from {}: {:#}", uri_str, e))?;
 
                     let inbox = actor_details["inbox"]
                         .as_str()
