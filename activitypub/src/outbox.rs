@@ -204,6 +204,7 @@ fn uri_for_actor(actor: &String) -> anyhow::Result<String> {
                         && x["type"].as_str() == Some("application/activity+json")
                 })
                 .ok_or(anyhow!("Could not find activitypub link for {}", actor))?
+                .map(|x| x["href"])
                 .as_str()
                 .ok_or(anyhow!("Activitypub link was not a string for {}", actor))?;
 
