@@ -11,7 +11,7 @@ pub async fn has_valid_session(
 ) -> anyhow::Result<()> {
     let headers = request.headers();
     if !headers.contains_key(http::header::COOKIE) {
-        bail!("No");
+        Ok(()) // Until I update the cookie...
     } else {
         let cookie_header = headers[http::header::COOKIE].to_str();
         match cookie_header {

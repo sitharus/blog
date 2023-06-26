@@ -94,7 +94,7 @@ pub async fn set_session_and_redirect(
         .header(http::header::LOCATION, format!("?action={}", destination))
         .header(
             http::header::SET_COOKIE,
-            format!("blog_session={}; HttpOnly", new_session_id),
+            format!("blog_session={}; HttpOnly; Path=/", new_session_id),
         )
         .header(http::header::CONTENT_TYPE, "text/plain")
         .body(body)?;
