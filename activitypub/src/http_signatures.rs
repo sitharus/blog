@@ -59,10 +59,7 @@ where
         .send(body.as_slice())?)
 }
 
-pub fn sign_and_call(request: Request, settings: &Settings) -> anyhow::Result<Response>
-where
-    T: Serialize,
-{
+pub fn sign_and_call(request: Request, settings: &Settings) -> anyhow::Result<Response> {
     let mut rng = rand::thread_rng();
 
     let date = chrono::Utc::now()

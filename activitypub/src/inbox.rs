@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::http_signatures;
+use crate::http_signatures::{self, sign_and_call};
 use crate::utils::jsonld_response;
 use anyhow::anyhow;
 use cgi::http::{header, Method};
@@ -99,10 +99,11 @@ async fn process_follow(
     connection: &mut PgConnection,
     settings: &Settings,
 ) -> anyhow::Result<()> {
-    let actor_details: Value = ureq::get(&req.actor)
-        .set(header::ACCEPT.as_str(), "application/activity+json")
-        .call()?
-        .into_json()?;
+    let actor_details: Value = sign_and_call(
+        ureq::get(&req.actor).set(header::ACCEPT.as_str(), "application/activity+json"),
+        settings,
+    )?
+    .into_json()?;
 
     let inbox = actor_details["inbox"].as_str().unwrap();
 
