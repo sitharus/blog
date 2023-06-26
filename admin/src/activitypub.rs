@@ -1,13 +1,26 @@
 use std::collections::HashMap;
 
-use anyhow::anyhow;
+use anyhow::{anyhow, bail};
+use askama::Template;
+use chrono::Utc;
+use http::Method;
 use shared::{
     activities::{self, Activity},
     database::connect_db,
     settings::get_settings_struct,
-    utils::{blog_post_url, render_redirect},
+    utils::{blog_post_url, post_body, render_html, render_redirect},
 };
-use sqlx::{query, types::Json};
+use sqlx::{query, types::Json, PgConnection};
+use uuid::Uuid;
+
+use crate::common::{get_common, Common};
+
+#[derive(Template)]
+#[template(path = "activitypub_send_post.html")]
+struct SendPage {
+    message: String,
+    common: Common,
+}
 
 pub async fn publish_posts(
     _request: &cgi::Request,
@@ -70,4 +83,66 @@ pub async fn publish_posts(
     }
 
     render_redirect("dashboard")
+}
+
+pub async fn send(
+    request: &cgi::Request,
+    query: HashMap<String, String>,
+    connection: &mut PgConnection,
+) -> anyhow::Result<cgi::Response> {
+    let id = query.get("id").ok_or(anyhow!("No id"))?.parse::<i32>()?;
+    let settings = get_settings_struct(connection).await?;
+    match request.method() {
+        &Method::GET => {
+            let common = get_common(connection, crate::types::AdminMenuPages::Posts).await?;
+            let post = query!(
+                "SELECT title, url_slug, post_date FROM posts WHERE id=$1",
+                id
+            )
+            .fetch_one(&mut *connection)
+            .await?;
+
+            let post_url = blog_post_url(post.url_slug, post.post_date, settings.base_url)?;
+            render_html(SendPage {
+                message: format!(r#"Check out <a href="{}">{}</a>"#, post_url, post.title),
+                common,
+            })
+        }
+        &Method::POST => {
+            let body = post_body::<HashMap<String, String>>(request)?;
+            let note_id = format!(
+                "{}/notes/{}",
+                settings.activitypub_base(),
+                Uuid::new_v4().hyphenated()
+            );
+            let message = body.get("message").unwrap().to_owned();
+            let to = body.get("to").unwrap().to_owned();
+            let note = Activity::note(
+                message,
+                note_id.clone(),
+                Utc::now(),
+                vec![to.clone()],
+                vec![],
+            );
+            let create = Activity::create(
+                settings.activitypub_actor_uri(),
+                note,
+                vec![to.clone()],
+                vec![],
+            );
+
+            let inserted = query!(
+                "INSERT INTO activitypub_outbox(activity_id, activity) VALUES($1, $2) RETURNING id",
+                note_id,
+                Json(create) as _
+            )
+            .fetch_one(&mut *connection)
+            .await?;
+
+            query!("INSERT INTO activitypub_outbox_target(activitypub_outbox_id, target) VALUES ($1, $2)", inserted.id, to).execute(&mut *connection).await?;
+
+            render_redirect("dashboard")
+        }
+        _ => bail!("Unknown method"),
+    }
 }

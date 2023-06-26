@@ -6,6 +6,7 @@ use anyhow::anyhow;
 use cgi::http::{header, Method};
 use serde_json::Value;
 use shared::activities::{Follow, OrderedCollection};
+use shared::session::has_valid_session;
 use shared::settings::Settings;
 use sqlx::{query, PgConnection};
 
@@ -54,10 +55,12 @@ pub async fn inbox(
 }
 
 pub async fn reprocess(
+    request: &cgi::Request,
     query_string: &HashMap<String, String>,
     connection: &mut PgConnection,
     settings: &Settings,
 ) -> anyhow::Result<cgi::Response> {
+    has_valid_session(connection, request).await?;
     let id_str = query_string
         .get("id")
         .ok_or(anyhow!("Id must be supplied"))?;

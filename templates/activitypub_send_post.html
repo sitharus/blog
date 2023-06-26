@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block content %}
+	<h1>Send post</h1>
+	<section>
+		<form method="POST">
+			<label>
+				To
+				<input type="text" name="to">
+			</label>
+			<label>
+				Message
+				<textarea name="message">{{message}}</textarea>
+			</label>
+			<button type="submit">Send</button>
+
+		</form>
+	</section>
+{% endblock %}

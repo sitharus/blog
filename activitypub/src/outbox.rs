@@ -3,6 +3,7 @@ use cgi::http::header;
 use serde_json::Value;
 use shared::{
     activities::{Activity, OrderedCollection},
+    session::has_valid_session,
     settings::Settings,
 };
 use sqlx::{query, PgConnection};
@@ -26,9 +27,11 @@ pub async fn render(connection: &mut PgConnection) -> anyhow::Result<cgi::Respon
 }
 
 pub async fn process(
+    request: &cgi::Request,
     connection: &mut PgConnection,
     settings: Settings,
 ) -> anyhow::Result<cgi::Response> {
+    has_valid_session(connection, request).await?;
     let to_process = query!(
         r#"
 SELECT o.id AS outbox_id, o.activity_id, o.activity, t.target, k.inbox AS "inbox?"

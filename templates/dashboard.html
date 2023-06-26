@@ -2,7 +2,6 @@
 
 {% block content %}
 	<h1> Dashboard! </h1>
-	<p>Some content will go here.</p>
 	<section>
 		<h1>Recent Posts</h1>
 		<table>
@@ -18,12 +17,30 @@
 					<tr>
 						<td>{{ post.title }}</td>
 						<td>{{ post.post_date|format_long_date }}</td>
-						<td><a href="?action=edit_post&id={{post.id}}">Edit</a></td>
+						<td>
+							<a href="?action=edit_post&id={{post.id}}">Edit</a>
+							<a href="?action=send_post&id={{post.id}}">Send</a>
+						</td>
 					</tr>
-
 				{% endfor %}
 
 			</tbody>
 		</table>
+	</section>
+	<section>
+		<h1>Followers</h1>
+		<table>
+			<tbody>
+				{% for f in followers %}
+				<tr>
+					<td>{{f.actor}}</td>
+					<td>{{f.first_seen|format_long_datetime}}</td>
+				</tr>
+				{% endfor %}
+			</tbody>
+		</table>
+	</section>
+	<section>
+		<h1>Comments</h1>
 	</section>
 {% endblock %}
