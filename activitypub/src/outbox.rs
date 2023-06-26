@@ -102,13 +102,13 @@ async fn send_actvity(
                         bail!("Request failed")
                     }
                     Ok(x) => {
-                        query!("INSERT INTO activitypub_delivery_log(activitypub_outbox_id, target, successful, response_body) VALUES($1, $2, false, $3)", outbox_id, target, format!("{:#}",x))
+                        query!("INSERT INTO activitypub_delivery_log(activitypub_outbox_id, target, successful, response_body) VALUES($1, $2, false, $3)", outbox_id, target, format!("Sending note to {}, {:#}",inbox_uri, x))
                     .execute(&mut *connection)
                     .await?;
                         bail!("Request failed")
                     }
                     Err(x) => {
-                        query!("INSERT INTO activitypub_delivery_log(activitypub_outbox_id, target, successful, response_body) VALUES($1, $2, false, $3)", outbox_id, target, format!("{:#}",x))
+                        query!("INSERT INTO activitypub_delivery_log(activitypub_outbox_id, target, successful, response_body) VALUES($1, $2, false, $3)", outbox_id, target, format!("Downcasting error {:#}",x))
                     .execute(&mut *connection)
                     .await?;
                         bail!("Request failed")
@@ -118,7 +118,7 @@ async fn send_actvity(
             }
         }
         Err(a) => {
-            query!("INSERT INTO activitypub_delivery_log(activitypub_outbox_id, target, successful, response_body) VALUES($1, $2, false, $3)", outbox_id, target, format!("{:#}",a))
+            query!("INSERT INTO activitypub_delivery_log(activitypub_outbox_id, target, successful, response_body) VALUES($1, $2, false, $3)", outbox_id, target, format!("Getting inbox: {:#}",a))
                     .execute(&mut *connection)
                     .await?;
             bail!(a)
@@ -148,8 +148,10 @@ async fn get_inbox_for_actor(
 
                     let actor_details: Value = ureq::get(uri_str)
                         .set(header::ACCEPT.as_str(), "application/jrd+json")
-                        .call()?
-                        .into_json()?;
+                        .call()
+                        .map_err(|e| anyhow!("Fetching {}: {:#}", uri_str, e))?
+                        .into_json()
+                        .map_err(|e| anyhow!("Parsing JSON from {}: {:#}", uri_str, e))?;
 
                     let inbox = actor_details["inbox"]
                         .as_str()
