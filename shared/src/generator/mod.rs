@@ -117,6 +117,11 @@ pub async fn get_common(connection: &mut PgConnection) -> anyhow::Result<CommonD
             .ok_or(anyhow!("No media url set"))?
             .to_owned(),
         archive_years: years,
+        timezone: settings
+            .get("timezone")
+            .and_then(|x| x.parse().ok())
+            .unwrap_or(chrono_tz::UTC)
+            .to_owned(),
         links,
         page_links,
         media,

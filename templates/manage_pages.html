@@ -21,7 +21,7 @@
 					<tr>
 						<td>{{ page.title }}</td>
 						<td>{{ page.url_slug }}</td>
-						<td>{{ page.date_updated|format_long_datetime }}</td>
+						<td>{{ page.date_updated|format_long_datetime(common.settings.timezone) }}</td>
 						<td>
 							<a href="?action=edit_page&id={{page.id}}">Edit</a>
 						</td>

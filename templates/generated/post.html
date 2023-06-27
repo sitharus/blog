@@ -20,7 +20,7 @@
 				{% for comment in comments %}
 
 					<section class="comment">
-						<p>by {{comment.author_name}} on {{comment.created_date|format_human_datetime}}</p>
+						<p>by {{comment.author_name}} on {{comment.created_date|format_human_datetime(common.timezone)}}</p>
 						<div>
 							{{comment.post_body|e|linebreaks|safe}}
 						</div>

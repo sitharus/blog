@@ -17,6 +17,7 @@ pub enum SettingNames {
     CanonicalHostname,
     FediPublicKeyPem,
     FediPrivateKeyPem,
+    Timezone,
 }
 const BLOG_NAME: &str = "blog_name";
 const BASE_URL: &str = "base_url";
@@ -27,6 +28,7 @@ const MEDIA_BASE_URL: &str = "media_base_url";
 const CANONICAL_HOSTNAME: &str = "canonical_hostname";
 const FEDI_PUBLIC_KEY_PEM: &str = "fedi_public_key_pem";
 const FEDI_PRIVATE_KEY_PEM: &str = "fedi_private_key_pem";
+const TIMEZONE: &str = "timezone";
 
 impl Display for SettingNames {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -40,6 +42,7 @@ impl Display for SettingNames {
             SettingNames::CanonicalHostname => write!(f, "{}", CANONICAL_HOSTNAME),
             SettingNames::FediPublicKeyPem => write!(f, "{}", FEDI_PUBLIC_KEY_PEM),
             SettingNames::FediPrivateKeyPem => write!(f, "{}", FEDI_PRIVATE_KEY_PEM),
+            SettingNames::Timezone => write!(f, "{}", TIMEZONE),
         }
     }
 }
@@ -61,6 +64,7 @@ impl FromStr for SettingNames {
             CANONICAL_HOSTNAME => Ok(SettingNames::CanonicalHostname),
             FEDI_PUBLIC_KEY_PEM => Ok(SettingNames::FediPublicKeyPem),
             FEDI_PRIVATE_KEY_PEM => Ok(SettingNames::FediPrivateKeyPem),
+            TIMEZONE => Ok(SettingNames::Timezone),
             _ => Err(ParseSettingNamesError),
         }
     }
@@ -77,6 +81,7 @@ pub struct Settings {
     pub fedi_public_key_pem: String,
     pub fedi_private_key_pem: String,
     pub actor_name: String,
+    pub timezone: chrono_tz::Tz,
 }
 
 impl Settings {
@@ -149,6 +154,10 @@ pub async fn get_settings_struct(connection: &mut PgConnection) -> anyhow::Resul
             .get(&SettingNames::FediPrivateKeyPem)
             .unwrap_or(&"Private Key".into())
             .into(),
+        timezone: all_settings
+            .get(&SettingNames::Timezone)
+            .and_then(|x| x.parse::<chrono_tz::Tz>().ok())
+            .unwrap_or(chrono_tz::UTC),
         actor_name: "blog".into(),
     })
 }

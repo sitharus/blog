@@ -17,7 +17,7 @@
 			{{ body.clone()|format_markdown(common)|safe }}
 
 			<footer>
-				Last updated {{last_updated|format_human_datetime}}
+				Last updated {{last_updated|format_human_datetime(common.timezone)}}
 			</footer>
 		</article>
 	</main>

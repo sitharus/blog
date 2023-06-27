@@ -37,6 +37,7 @@ pub struct CommonData {
     pub links: Vec<Link>,
     pub page_links: Vec<PageLink>,
     pub media: HashMap<i32, Media>,
+    pub timezone: chrono_tz::Tz,
 }
 
 pub struct Media {

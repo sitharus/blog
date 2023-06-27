@@ -34,7 +34,7 @@
 				{% for f in followers %}
 				<tr>
 					<td>{{f.actor}}</td>
-					<td>{{f.first_seen|format_long_datetime}}</td>
+					<td>{{f.first_seen|format_long_datetime(common.settings.timezone)}}</td>
 				</tr>
 				{% endfor %}
 			</tbody>

@@ -2,6 +2,7 @@ use crate::utils::blog_post_url;
 
 use super::{CommonData, HydratedPost};
 use chrono::{offset::Utc, DateTime, Datelike, Month, NaiveDate};
+use chrono_tz::Tz;
 use num_traits::FromPrimitive;
 use ordinal::Ordinal;
 use pulldown_cmark::{Event, Tag};
@@ -25,8 +26,11 @@ pub fn format_human_date(date_time: &NaiveDate) -> ::askama::Result<String> {
     Ok(date_time.format("%A, %-d %B, %C%y").to_string())
 }
 
-pub fn format_human_datetime(date_time: &DateTime<Utc>) -> ::askama::Result<String> {
-    Ok(date_time.format("%A, %-d %B, %C%y at %-I:%m%P").to_string())
+pub fn format_human_datetime(date_time: &DateTime<Utc>, timezone: &Tz) -> ::askama::Result<String> {
+    Ok(date_time
+        .with_timezone(timezone)
+        .format("%A, %-d %B, %C%y at %-I:%m%P %Z")
+        .to_string())
 }
 
 pub fn format_rfc3339_datetime(date_time: &DateTime<Utc>) -> ::askama::Result<String> {

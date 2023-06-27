@@ -121,14 +121,14 @@ pub async fn send(
                 message,
                 note_id.clone(),
                 Utc::now(),
+                vec![activities::PUBLIC_TIMELINE.into()],
                 vec![to.clone()],
-                vec![],
             );
             let create = Activity::create(
                 settings.activitypub_actor_uri(),
                 note,
+                vec![activities::PUBLIC_TIMELINE.into()],
                 vec![to.clone()],
-                vec![],
             );
 
             let inserted = query!(

@@ -29,6 +29,7 @@ pub async fn render(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
         for setting in [
             "blog_name",
             "base_url",
+            "timezone",
             "comment_cgi_url",
             "static_base_url",
             "media_path",
@@ -36,6 +37,7 @@ pub async fn render(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
             "canonical_hostname",
             "fedi_public_key_pem",
             "fedi_private_key_pem",
+            "timezone",
         ] {
             if let Some(value) = content.get(setting) {
                 query!(

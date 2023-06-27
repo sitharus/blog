@@ -20,7 +20,7 @@
 					<td>{{row.post_title}}</td>
 					<td>{{row.author_name}}</td>
 					<td>{{row.author_email}}</td>
-					<td>{{row.created_date|format_long_datetime}}</td>
+					<td>{{row.created_date|format_long_datetime(common.settings.timezone)}}</td>
 					<td>
 						<form action="?action=moderate_comment" method="POST" class="action-links">
 							<input type="hidden" name="comment_id" value="{{row.id}}">
