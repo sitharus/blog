@@ -41,7 +41,7 @@ pub async fn publish_posts(
         .map(|r| r.actor.unwrap())
         .collect();
 
-    let to_post = query!("SELECT title, url_slug, post_date FROM posts p WHERE NOT EXISTS (SELECT 1 FROM activitypub_outbox o WHERE o.source_post = p.id) AND p.state = 'published'")
+    let to_post = query!("SELECT id, title, url_slug, post_date FROM posts p WHERE NOT EXISTS (SELECT 1 FROM activitypub_outbox o WHERE o.source_post = p.id) AND p.state = 'published'")
         .fetch_all(&mut connection)
         .await?;
 
@@ -69,9 +69,10 @@ pub async fn publish_posts(
         );
 
         let inserted = query!(
-            "INSERT INTO activitypub_outbox(activity_id, activity) VALUES($1, $2) RETURNING id",
+            "INSERT INTO activitypub_outbox(activity_id, activity, source_post) VALUES($1, $2, $3) RETURNING id",
             post_url,
-            Json(create) as _
+            Json(create) as _,
+            post.id
         )
         .fetch_one(&mut connection)
         .await?;
