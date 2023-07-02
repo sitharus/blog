@@ -1,4 +1,4 @@
-use anyhow::{anyhow, bail};
+use anyhow::bail;
 use cgi::http::header;
 use serde_json::Value;
 use shared::{
@@ -8,10 +8,7 @@ use shared::{
 };
 use sqlx::{query, PgConnection};
 
-use crate::{
-    http_signatures::{self, sign_and_call},
-    utils::jsonld_response,
-};
+use crate::{actor::get_actor, http_signatures, utils::jsonld_response};
 
 pub async fn render(connection: &mut PgConnection) -> anyhow::Result<cgi::Response> {
     let contents = query!("SELECT activity FROM activitypub_outbox ORDER BY created_at DESC")
@@ -147,78 +144,10 @@ async fn get_inbox_for_actor(
             match known_actor {
                 Some(row) => Ok(row.inbox),
                 None => {
-                    let actor_uri = uri_for_actor(&actor)?;
-                    let uri_str = actor_uri.as_str();
-
-                    let actor_details: Value = sign_and_call(
-                        ureq::get(uri_str).set(header::ACCEPT.as_str(), "application/jrd+json"),
-                        settings,
-                    )
-                    .map_err(|e| anyhow!("Fetching {}: {:#}", uri_str, e))?
-                    .into_json()
-                    .map_err(|e| anyhow!("Parsing JSON from {}: {:#}", uri_str, e))?;
-
-                    let inbox = actor_details["inbox"]
-                        .as_str()
-                        .ok_or(anyhow!("No inbox in activitypub details for {}", actor))?;
-                    let public_key = actor_details["publicKey"]["publicKeyPem"].as_str();
-                    let public_key_id = actor_details["publicKey"]["id"].as_str();
-
-                    query!(
-                        "
-INSERT INTO activitypub_known_actors(is_following, actor, inbox, public_key, public_key_id)
-VALUES (false, $1, $2, $3, $4)
-ON CONFLICT(actor) DO NOTHING
-",
-                        actor,
-                        inbox,
-                        public_key,
-                        public_key_id
-                    )
-                    .execute(connection)
-                    .await?;
-
-                    Ok(inbox.into())
+                    let actor_record = get_actor(actor, connection, settings).await?;
+                    Ok(actor_record.inbox)
                 }
             }
-        }
-    }
-}
-
-fn uri_for_actor(actor: &String) -> anyhow::Result<String> {
-    if actor.starts_with("http://") {
-        Ok(actor.clone())
-    } else {
-        let parts: Vec<&str> = actor.split('@').collect();
-        if parts.len() == 2 {
-            let server = parts[1];
-            let finger_uri = format!(
-                "https://{}/.well-known/webfinger?resource=acct:{}",
-                server, actor
-            );
-
-            let finger: Value = ureq::get(&finger_uri)
-                .set(header::ACCEPT.as_str(), "application/jrd+json")
-                .call()?
-                .into_json()?;
-
-            let actor_link = finger["links"]
-                .as_array()
-                .ok_or(anyhow!("No links in webfinger for {}", actor))?
-                .into_iter()
-                .find(|x| {
-                    x["rel"].as_str() == Some("self")
-                        && x["type"].as_str() == Some("application/activity+json")
-                })
-                .ok_or(anyhow!("Could not find activitypub link for {}", actor))?
-                .get("href")
-                .ok_or(anyhow!("No href in link element"))?
-                .as_str()
-                .ok_or(anyhow!("Activitypub link was not a string for {}", actor))?;
-
-            Ok(actor_link.into())
-        } else {
-            Err(anyhow!("Could not resolve actor from {}", actor))
         }
     }
 }

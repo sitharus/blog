@@ -13,7 +13,14 @@ use shared::settings::Settings;
 use ureq::{Request, Response};
 
 pub async fn validate(request: &cgi::Request) -> anyhow::Result<bool> {
-    Ok(true)
+    let signature = request.headers().get("Signature");
+    let digest = request.headers().get("Digest");
+
+    if signature.is_none() || (!request.body().is_empty() && digest.is_none()) {
+        Ok(false)
+    } else {
+        Ok(true)
+    }
 }
 
 pub fn sign_and_send<T>(request: Request, body: T, settings: &Settings) -> anyhow::Result<Response>

@@ -48,6 +48,8 @@ pub enum Activity {
     Note(Note),
     Follow(Follow),
     Create(Create),
+    Undo(Undo),
+    Delete(Delete),
 }
 
 impl Activity {
@@ -67,11 +69,18 @@ impl Activity {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(untagged)]
+pub enum Context {
+    String(String),
+    List(Vec<serde_json::Value>),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Create {
     #[serde(rename = "@context")]
-    context: String,
-    actor: String,
-    published: chrono::DateTime<Utc>,
+    context: Context,
+    pub actor: String,
+    pub published: chrono::DateTime<Utc>,
     to: Vec<String>,
     cc: Vec<String>,
     object: Box<Activity>,
@@ -80,7 +89,7 @@ pub struct Create {
 impl Create {
     fn new(actor: String, object: Activity, to: Vec<String>, cc: Vec<String>) -> Create {
         Self {
-            context: "https://www.w3.org/ns/activitystreams".into(),
+            context: Context::String("https://www.w3.org/ns/activitystreams".into()),
             actor,
             object: Box::new(object),
             published: chrono::Utc::now(),
@@ -88,15 +97,19 @@ impl Create {
             cc,
         }
     }
+
+    pub fn object(&self) -> &Activity {
+        &*self.object
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Note {
     #[serde(rename = "@context")]
-    context: String,
-    content: String,
-    id: String,
-    published: chrono::DateTime<Utc>,
+    context: Option<String>,
+    pub content: String,
+    pub id: String,
+    pub published: chrono::DateTime<Utc>,
     to: Vec<String>,
     cc: Vec<String>,
 }
@@ -110,7 +123,7 @@ impl Note {
         cc: Vec<String>,
     ) -> Self {
         Note {
-            context: "https://www.w3.org/ns/activitystreams".into(),
+            context: Some("https://www.w3.org/ns/activitystreams".into()),
             content,
             id,
             published,
@@ -152,4 +165,18 @@ impl Follow {
     pub fn accept(&self, by: String) -> Accept {
         Accept::new(by, Activity::Follow(self.clone()))
     }
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct Delete {
+    pub object: String,
+    pub actor: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Undo {
+    #[serde(rename = "@context")]
+    context: String,
+    actor: String,
+    pub object: Box<Activity>,
 }

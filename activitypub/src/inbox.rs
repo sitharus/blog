@@ -1,13 +1,15 @@
 use std::collections::HashMap;
 
+use crate::actor::get_actor;
 use crate::http_signatures::{self, sign_and_call};
 use crate::utils::jsonld_response;
-use anyhow::anyhow;
+use anyhow::{anyhow, bail};
 use cgi::http::{header, Method};
 use serde_json::Value;
-use shared::activities::{Follow, OrderedCollection};
+use shared::activities::{Activity, Create, Delete, Follow, OrderedCollection, Undo};
 use shared::session::has_valid_session;
 use shared::settings::Settings;
+use sqlx::types::Json;
 use sqlx::{query, PgConnection};
 
 pub async fn inbox(
@@ -24,25 +26,17 @@ pub async fn inbox(
             jsonld_response(&inbox)
         }
         &Method::POST => {
-            let mut body: Value = serde_json::from_slice(request.body())?;
-            let signature = request.headers().get("Signature");
-            let digest = request.headers().get("Digest");
-            body["http_signature"] = match signature {
-                Some(val) => serde_json::Value::String(val.to_str().unwrap_or("").into()),
-                _ => Value::Null,
-            };
-            body["digest"] = match digest {
-                Some(val) => serde_json::Value::String(val.to_str().unwrap_or("").into()),
-                _ => Value::Null,
-            };
-
+            let body: Value = serde_json::from_slice(request.body())?;
             http_signatures::validate(request).await?;
 
-            query!("INSERT INTO activitypub_inbox(body) VALUES($1)", body)
-                .execute(&mut *connection)
-                .await?;
+            let inserted = query!(
+                "INSERT INTO activitypub_inbox(body) VALUES($1) RETURNING id",
+                body
+            )
+            .fetch_one(&mut *connection)
+            .await?;
 
-            process_inbound(body, &mut *connection, settings).await?;
+            process_inbound(inserted.id, body, &mut *connection, settings).await?;
 
             let following: OrderedCollection<String> = OrderedCollection {
                 items: vec![],
@@ -65,33 +59,64 @@ pub async fn reprocess(
         .get("id")
         .ok_or(anyhow!("Id must be supplied"))?;
     let id: i64 = id_str.parse()?;
-    let row = query!("SELECT body FROM activitypub_inbox WHERE id=$1", id)
-        .fetch_one(&mut *connection)
-        .await?;
+    let row = query!(
+        "SELECT body FROM activitypub_inbox WHERE id=$1 and processed = false",
+        id
+    )
+    .fetch_one(&mut *connection)
+    .await?;
 
     if let Some(body) = row.body {
-        process_inbound(body, connection, settings).await?;
+        process_inbound(id, body, connection, settings).await?;
     }
 
     Ok(cgi::text_response(200, "Done"))
 }
 
 async fn process_inbound(
+    inbox_id: i64,
     body: Value,
     connection: &mut PgConnection,
     settings: &Settings,
 ) -> anyhow::Result<()> {
-    match body["type"].as_str() {
-        Some("Follow") => {
-            let req: Follow = serde_json::from_value(body)?;
+    let activity: Result<Activity, _> = serde_json::from_value(body);
+
+    match activity {
+        Ok(Activity::Follow(req)) => {
             if !is_blocked(req.actor.clone(), connection).await? {
-                process_follow(req, connection, settings).await
+                process_follow(req, connection, settings).await?;
+                mark_as_processed(inbox_id, connection).await
             } else {
                 Ok(())
             }
         }
-        _ => Ok(()),
+        Ok(Activity::Delete(req)) => {
+            process_delete(req, connection).await?;
+            mark_as_processed(inbox_id, connection).await
+        }
+        Ok(Activity::Undo(undo)) => {
+            process_undo(undo, connection).await?;
+            mark_as_processed(inbox_id, connection).await
+        }
+        Ok(Activity::Create(create)) => {
+            process_create(inbox_id, create, connection, settings).await?;
+            mark_as_processed(inbox_id, connection).await
+        }
+        e => {
+            dbg!("{:?}", e);
+            Ok(())
+        }
     }
+}
+
+async fn mark_as_processed(inbox_id: i64, connection: &mut PgConnection) -> anyhow::Result<()> {
+    query!(
+        "UPDATE activitypub_inbox SET processed=true WHERE id=$1",
+        inbox_id
+    )
+    .execute(&mut *connection)
+    .await?;
+    Ok(())
 }
 
 async fn process_follow(
@@ -123,6 +148,18 @@ async fn process_follow(
         accept,
         settings,
     )?;
+
+    Ok(())
+}
+
+async fn process_delete(req: Delete, connection: &mut PgConnection) -> anyhow::Result<()> {
+    // Right now only deletes of actors supported.
+    query!(
+        "UPDATE activitypub_known_actors SET is_following=false WHERE actor=$1",
+        req.object
+    )
+    .execute(connection)
+    .await?;
     Ok(())
 }
 
@@ -136,4 +173,44 @@ async fn is_blocked(actor: String, connection: &mut PgConnection) -> anyhow::Res
         Some(row) => row.count.unwrap_or_default() > 0,
         None => false,
     })
+}
+
+async fn process_undo(undo: Undo, connection: &mut PgConnection) -> anyhow::Result<()> {
+    match *undo.object {
+        Activity::Follow(follow) => {
+            query!(
+                "UPDATE activitypub_known_actors SET is_following=false WHERE actor=$1",
+                follow.actor
+            )
+            .execute(connection)
+            .await?;
+            Ok(())
+        }
+        _ => bail!("Unknown undo!"),
+    }
+}
+
+async fn process_create(
+    item_id: i64,
+    create: Create,
+    connection: &mut PgConnection,
+    settings: &Settings,
+) -> anyhow::Result<()> {
+    match create.object() {
+        Activity::Note(note) => {
+            let actor = get_actor(create.actor.to_owned(), connection, settings).await?;
+
+            query!("INSERT INTO activitypub_feed (actor_id, inbox_item_id, recieved_at, message_timestamp, message, extra_data) VALUES ($1, $2, CURRENT_TIMESTAMP, $3, $4, $5)",
+				   actor.id,
+				   item_id,
+				   note.published,
+				   note.content,
+				   Json(note) as _
+)
+				.execute(connection)
+				.await?;
+            Ok(())
+        }
+        _ => bail!("Unknown create type"),
+    }
 }

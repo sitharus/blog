@@ -28,7 +28,8 @@ pub async fn publish_posts(
 ) -> anyhow::Result<cgi::Response> {
     let push = match query.get("push").map(|f| f.as_str()) {
         Some("true") => true,
-        _ => false,
+        Some(_) => false,
+        None => false,
     };
     let mut connection = connect_db().await?;
     let settings = get_settings_struct(&mut connection).await?;
