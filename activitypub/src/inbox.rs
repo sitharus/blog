@@ -99,7 +99,9 @@ async fn process_inbound(
             mark_as_processed(inbox_id, connection).await
         }
         Ok(Activity::Create(create)) => {
-            process_create(inbox_id, create, connection, settings).await?;
+            if !is_blocked(create.actor.clone(), connection).await? {
+                process_create(inbox_id, create, connection, settings).await?;
+            }
             mark_as_processed(inbox_id, connection).await
         }
         e => {

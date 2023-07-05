@@ -1,5 +1,5 @@
 use anyhow::anyhow;
-use cgi::http::header;
+use cgi::http::{header, uri};
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use serde_json::Value;
@@ -95,48 +95,71 @@ pub async fn get_actor(
     if let Some(actor) = known {
         Ok(actor)
     } else {
-        let actor_details: Value = sign_and_call(
-            ureq::get(uri_str).set(header::ACCEPT.as_str(), "application/jrd+json"),
-            settings,
-        )
-        .map_err(|e| anyhow!("Fetching {}: {:#}", uri_str, e))?
-        .into_json()
-        .map_err(|e| anyhow!("Parsing JSON from {}: {:#}", uri_str, e))?;
+        fetch_actor(uri_str, &actor_uri, connection, settings).await
+    }
+}
 
-        let inbox = actor_details["inbox"]
-            .as_str()
-            .ok_or(anyhow!("No inbox in activitypub details for {}", actor_uri))?;
-        let public_key = actor_details["publicKey"]["publicKeyPem"].as_str();
-        let public_key_id = actor_details["publicKey"]["id"].as_str();
+pub async fn refresh_actor(
+    actor_uri: String,
+    connection: &mut PgConnection,
+    settings: &Settings,
+) -> anyhow::Result<ActorRecord> {
+    let actor_uri = uri_for_actor(&actor_uri)?;
+    let uri_str = actor_uri.as_str();
+    fetch_actor(uri_str, &actor_uri, connection, settings).await
+}
 
-        let row = query!(
+async fn fetch_actor(
+    uri_str: &str,
+    actor_uri: &String,
+    connection: &mut PgConnection,
+    settings: &Settings,
+) -> anyhow::Result<ActorRecord> {
+    let actor_details: Value = sign_and_call(
+        ureq::get(uri_str).set(header::ACCEPT.as_str(), "application/jrd+json"),
+        settings,
+    )
+    .map_err(|e| anyhow!("Fetching {}: {:#}", uri_str, e))?
+    .into_json()
+    .map_err(|e| anyhow!("Parsing JSON from {}: {:#}", uri_str, e))?;
+
+    let inbox = actor_details["inbox"]
+        .as_str()
+        .ok_or(anyhow!("No inbox in activitypub details for {}", actor_uri))?;
+    let public_key = actor_details["publicKey"]["publicKeyPem"].as_str();
+    let public_key_id = actor_details["publicKey"]["id"].as_str();
+    let username = actor_details["preferred_username"].as_str();
+    let server: uri::Uri = uri_str.parse()?;
+
+    let row = query!(
             "
-INSERT INTO activitypub_known_actors(is_following, actor, inbox, public_key, public_key_id)
-VALUES (false, $1, $2, $3, $4)
-ON CONFLICT(actor) DO NOTHING
-RETURNING id
+INSERT INTO activitypub_known_actors(is_following, actor, inbox, public_key, public_key_id, username, server)
+VALUES (false, $1, $2, $3, $4, $5, $6)
+ON CONFLICT(actor) DO UPDATE SET public_key=$3, public_key_id=$4, username=$5, server=$6
+RETURNING id, first_seen, last_seen, is_following
 ",
             actor_uri,
             inbox,
             public_key,
-            public_key_id
+            public_key_id,
+			username,
+			server.host()
         )
         .fetch_one(connection)
         .await?;
 
-        Ok(ActorRecord {
-            id: row.id,
-            first_seen: Some(Utc::now()),
-            last_seen: Some(Utc::now()),
-            actor: Some(uri_str.into()),
-            is_following: false,
-            public_key: public_key.map(|s| s.into()),
-            inbox: inbox.into(),
-            public_key_id: public_key_id.unwrap_or("").into(),
-            username: None,
-            server: None,
-        })
-    }
+    Ok(ActorRecord {
+        id: row.id,
+        first_seen: row.first_seen,
+        last_seen: row.last_seen,
+        actor: Some(uri_str.into()),
+        is_following: row.is_following,
+        public_key: public_key.map(|s| s.into()),
+        inbox: inbox.into(),
+        public_key_id: public_key_id.unwrap_or("").into(),
+        username: username.map(|u| u.into()),
+        server: server.host().map(|s| s.into()),
+    })
 }
 
 fn uri_for_actor(actor: &String) -> anyhow::Result<String> {

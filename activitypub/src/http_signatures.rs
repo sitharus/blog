@@ -27,7 +27,6 @@ pub fn sign_and_send<T>(request: Request, body: T, settings: &Settings) -> anyho
 where
     T: Serialize,
 {
-    dbg!(serde_json::to_string(&body)?);
     let body = serde_json::to_vec(&body)?;
     let mut rng = rand::thread_rng();
 

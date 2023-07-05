@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block content %}
+	<h1>Fedifeed</h1>
+	{% for message in messages %}
+		{% match message.actor %}
+		{% when Some(a) %} {{ a }}
+		{% when None %} No Actor
+		{% endmatch %}
+		{{ message.timestamp }}
+		{% match message.message %}
+		{% when Some(a) %} {{ a }}
+		{% when None %} No Message
+		{% endmatch %}
+	{% endfor %}
+{% endblock %}

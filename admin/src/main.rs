@@ -138,6 +138,7 @@ async fn process(request: &cgi::Request, query_string: &str) -> anyhow::Result<c
             "media" => manage_media(request).await,
             "publish_posts" => activitypub::publish_posts(request, query).await,
             "send_post" => activitypub::send(request, query).await,
+            "activitypub_feed" => activitypub::feed().await,
             _ => do_404().await,
         }
     }

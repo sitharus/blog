@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use anyhow::{anyhow, bail};
 use askama::Template;
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use http::Method;
 use shared::{
     activities::{self, Activity},
@@ -10,7 +10,7 @@ use shared::{
     settings::get_settings_struct,
     utils::{blog_post_url, post_body, render_html, render_redirect},
 };
-use sqlx::{query, types::Json};
+use sqlx::{query, query_as, types::Json};
 use uuid::Uuid;
 
 use crate::common::{get_common, Common};
@@ -19,6 +19,19 @@ use crate::common::{get_common, Common};
 #[template(path = "activitypub_send_post.html")]
 struct SendPage {
     message: String,
+    common: Common,
+}
+
+struct FeedMessage {
+    actor: Option<String>,
+    message: Option<String>,
+    timestamp: DateTime<Utc>,
+}
+
+#[derive(Template)]
+#[template(path = "activitypub_feed.html")]
+struct FeedPage {
+    messages: Vec<FeedMessage>,
     common: Common,
 }
 
@@ -147,4 +160,26 @@ pub async fn send(
         }
         _ => bail!("Unknown method"),
     }
+}
+
+pub async fn feed() -> anyhow::Result<cgi::Response> {
+    let mut connection = connect_db().await?;
+    let common = get_common(&mut connection, crate::types::AdminMenuPages::Account).await?;
+    let messages = query_as!(
+        FeedMessage,
+        r#"
+SELECT
+	(CASE WHEN a.username IS NOT NULL THEN a.username || '@' || a.server ELSE a.actor END) AS actor,
+	message_timestamp AS "timestamp",
+	message
+FROM activitypub_feed f
+INNER JOIN activitypub_known_actors a
+ON a.id = f.actor_id
+ORDER BY message_timestamp DESC
+"#
+    )
+    .fetch_all(&mut connection)
+    .await?;
+
+    render_html(FeedPage { common, messages })
 }
