@@ -31,3 +31,4 @@ bytes = "1.4.0"
 lazy_static = "1.4.0"
 image = { version = "0.24.6" }
 chrono-tz = "0.8.2"
+ammonia = "3.3.0"

@@ -11,3 +11,10 @@ pub fn format_long_datetime(date_time: &DateTime<Utc>, timezone: &Tz) -> ::askam
 pub fn format_long_date(date_time: &NaiveDate) -> ::askama::Result<String> {
     Ok(date_time.format("%-d %B %C%y").to_string())
 }
+
+pub fn clean_html<S>(content: S) -> ::askama::Result<String>
+where
+    S: AsRef<str>,
+{
+    Ok(ammonia::clean(content.as_ref()))
+}

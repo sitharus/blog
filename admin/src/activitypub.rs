@@ -14,6 +14,7 @@ use sqlx::{query, query_as, types::Json};
 use uuid::Uuid;
 
 use crate::common::{get_common, Common};
+use crate::filters;
 
 #[derive(Template)]
 #[template(path = "activitypub_send_post.html")]
@@ -164,7 +165,7 @@ pub async fn send(
 
 pub async fn feed() -> anyhow::Result<cgi::Response> {
     let mut connection = connect_db().await?;
-    let common = get_common(&mut connection, crate::types::AdminMenuPages::Account).await?;
+    let common = get_common(&mut connection, crate::types::AdminMenuPages::Fediverse).await?;
     let messages = query_as!(
         FeedMessage,
         r#"

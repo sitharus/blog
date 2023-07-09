@@ -24,6 +24,9 @@
 				<a href="?action=comments" class="{% call isselected("comments") %}"> {% include "comment.svg" %} Comments ({{common.comments_waiting}})</a>
 			</li>
 			<li>
+				<a href="?action=activitypub_feed" class="{% call isselected("fediverse") %}"> {% include "fediverse.svg" %} Fediverse</a>
+			</li>
+			<li>
 				<a href="?action=media" class="{% call isselected("media") %}"> {% include "media.svg" %} Media </a>
 			</li>
 			<li>

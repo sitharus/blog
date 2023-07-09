@@ -19,6 +19,7 @@ pub struct ActorRecord {
     pub public_key_id: String,
     pub username: Option<String>,
     pub server: Option<String>,
+    pub raw_actor_data: Option<Value>,
 }
 
 #[derive(Serialize, Debug)]
@@ -133,9 +134,9 @@ async fn fetch_actor(
 
     let row = query!(
             "
-INSERT INTO activitypub_known_actors(is_following, actor, inbox, public_key, public_key_id, username, server)
-VALUES (false, $1, $2, $3, $4, $5, $6)
-ON CONFLICT(actor) DO UPDATE SET public_key=$3, public_key_id=$4, username=$5, server=$6
+INSERT INTO activitypub_known_actors(is_following, actor, inbox, public_key, public_key_id, username, server, raw_actor_data)
+VALUES (false, $1, $2, $3, $4, $5, $6, $7)
+ON CONFLICT(actor) DO UPDATE SET public_key=$3, public_key_id=$4, username=$5, server=$6, raw_actor_data=$7
 RETURNING id, first_seen, last_seen, is_following
 ",
             actor_uri,
@@ -143,7 +144,8 @@ RETURNING id, first_seen, last_seen, is_following
             public_key,
             public_key_id,
 			username,
-			server.host()
+            server.host(),
+            actor_details,
         )
         .fetch_one(connection)
         .await?;
@@ -159,6 +161,7 @@ RETURNING id, first_seen, last_seen, is_following
         public_key_id: public_key_id.unwrap_or("").into(),
         username: username.map(|u| u.into()),
         server: server.host().map(|s| s.into()),
+        raw_actor_data: Some(actor_details),
     })
 }
 

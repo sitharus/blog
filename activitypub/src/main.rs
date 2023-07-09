@@ -1,9 +1,10 @@
-use actor::Actor;
+use actor::{refresh_actor, Actor};
 use async_std::task;
 use cgi::http::{header, response, Uri};
 use shared::{
     activities::OrderedCollection,
     database::connect_db,
+    session::has_valid_session,
     settings::{get_settings_struct, Settings},
     utils::parse_query_string,
 };
@@ -65,6 +66,16 @@ async fn process(request: cgi::Request) -> anyhow::Result<cgi::Response> {
         "/activitypub/outbox/process" => outbox::process(&request, &mut connection, settings).await,
         "/activitypub/followers" => followers(&request, &mut connection).await,
         "/activitypub/following" => following(&request).await,
+        "/activitypub/refresh" => {
+            has_valid_session(&mut connection, &request).await?;
+            refresh_actor(
+                query_string.get("actor_uri").unwrap().to_string(),
+                &mut connection,
+                &settings,
+            )
+            .await?;
+            Ok(cgi::text_response(200, "refreshed"))
+        }
         _ => Ok(cgi::text_response(404, "Not found")),
     }
 }

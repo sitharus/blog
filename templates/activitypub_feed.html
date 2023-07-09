@@ -3,14 +3,24 @@
 {% block content %}
 	<h1>Fedifeed</h1>
 	{% for message in messages %}
-		{% match message.actor %}
-		{% when Some(a) %} {{ a }}
-		{% when None %} No Actor
-		{% endmatch %}
-		{{ message.timestamp }}
-		{% match message.message %}
-		{% when Some(a) %} {{ a }}
-		{% when None %} No Message
-		{% endmatch %}
+		<article class="federated">
+			<hgroup>
+				<h1>
+					{%- match message.actor -%}
+					{%- when Some(a) -%} {{ a }}
+					{%- when None -%} No Actor
+					{%- endmatch -%}
+				</h1>
+				<h2>
+					{{ message.timestamp }}
+				</h2>
+			</hgroup>
+			<div>
+				{% match message.message %}
+				{% when Some(a) %} {{ a|clean_html|safe }}
+				{% when None %} No Message
+				{% endmatch %}
+			</div>
+		</article>
 	{% endfor %}
 {% endblock %}
