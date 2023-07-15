@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use anyhow::anyhow;
 use askama::Template;
-use async_std::task;
 use cgi;
 use generator::preview_page;
 use media::manage_media;
@@ -13,6 +12,7 @@ use shared::{
     database,
     utils::{parse_query_string, render_html, render_html_status},
 };
+use tokio::runtime::Runtime;
 
 mod account;
 mod activitypub;
@@ -162,11 +162,13 @@ fn redirect_session_error(e: anyhow::Error) -> anyhow::Result<cgi::Response> {
 cgi::cgi_try_main! { |request: cgi::Request| -> anyhow::Result<cgi::Response> {
     let maybe_query = request.uri().query();
     match maybe_query {
-        Some(qs) =>
-            match task::block_on(process(&request, qs)) {
+        Some(qs) => {
+            let runtime = Runtime::new().unwrap();
+            match runtime.block_on(process(&request, qs)) {
                 Err(e) => redirect_session_error(e),
                 x => x
-            },
+            }
+        },
         None => {
             let content = Index {
                 username: None,

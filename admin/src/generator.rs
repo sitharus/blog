@@ -7,7 +7,6 @@ use shared::utils::{post_body, render_html};
 
 use anyhow::anyhow;
 use askama::Template;
-use async_std::fs::create_dir_all;
 use chrono::{offset::Utc, DateTime, Datelike, Month, NaiveDate};
 use itertools::Itertools;
 use num_traits::FromPrimitive;
@@ -16,6 +15,7 @@ use std::collections::HashMap;
 use std::env;
 use std::fs::File;
 use std::io::prelude::*;
+use tokio::fs::create_dir_all;
 
 #[derive(Template)]
 #[template(path = "generated/post.html")]

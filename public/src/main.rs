@@ -2,10 +2,10 @@ use std::collections::HashMap;
 
 use anyhow::anyhow;
 use askama::Template;
-use async_std::task;
 use cgi;
 use shared::{database, generator, utils};
 use sqlx::query;
+use tokio::runtime::Runtime;
 
 #[derive(Template)]
 #[template(path = "400.html")]
@@ -112,10 +112,13 @@ cgi::cgi_try_main! {|request: cgi::Request| -> anyhow::Result<cgi::Response> {
 
     let maybe_query = request.uri().query();
     match maybe_query {
-        Some(qs) =>
-            match task::block_on(process(&request, qs)) {
+        Some(qs) => {
+            let runtime = Runtime::new().unwrap();
+
+            match runtime.block_on(process(&request, qs)) {
                 x => x
-            },
+            }
+        },
         None => {
             utils::render_html(Http404{})
         }

@@ -1,5 +1,4 @@
 use actor::{refresh_actor, Actor};
-use async_std::task;
 use cgi::http::{header, response, Uri};
 use shared::{
     activities::OrderedCollection,
@@ -10,6 +9,7 @@ use shared::{
 };
 use sqlx::{query, PgConnection};
 use std::{collections::HashMap, env};
+use tokio::runtime::Runtime;
 use utils::jsonld_response;
 
 mod actor;
@@ -20,7 +20,8 @@ mod outbox;
 mod utils;
 
 cgi::cgi_try_main! { |request: cgi::Request| -> anyhow::Result<cgi::Response> {
-    task::block_on(process(request))
+    let runtime = Runtime::new().unwrap();
+    runtime.block_on(process(request))
 }}
 
 async fn process(request: cgi::Request) -> anyhow::Result<cgi::Response> {

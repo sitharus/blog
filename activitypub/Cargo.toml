@@ -8,15 +8,16 @@ edition = "2021"
 [dependencies]
 shared = { path = "../shared" }
 
-anyhow = "1.0.71"
-async-std = "1.12.0"
-cgi = "0.6.0"
-chrono = { version = "0.4.26", features = ["serde"] }
-rustls = "0.21.1"
-serde = { version = "1.0.164", features = ["derive"] }
-serde-querystring = "0.2.1"
-sqlx = { version = "0.6.3", features = ["postgres", "json", "chrono", "runtime-async-std-rustls", "uuid"] }
-serde_json = "1.0.97"
+anyhow = { workspace = true }
+tokio = { workspace = true }
+cgi = { workspace = true }
+serde = { workspace = true }
+sqlx = { workspace = true }
+chrono = { workspace = true  }
+serde-querystring = { workspace = true }
+serde_json = { workspace = true }
+rustls = { workspace = true }
+
 ureq = { version = "2.7.1", features = ["tls", "json"] }
 rsa = { version = "0.9.2", features = ["sha2"] }
 rand = "0.8.5"
