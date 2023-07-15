@@ -9,6 +9,8 @@ pub struct HydratedPost {
     pub body: String,
     pub author_name: Option<String>,
     pub comment_count: Option<i64>,
+    pub song: Option<String>,
+    pub mood: Option<String>,
 }
 
 pub struct HydratedComment {

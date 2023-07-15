@@ -20,3 +20,11 @@
 			</label>
 			<label for="body">Content</label>
 			<textarea name="body">{{body}}</textarea>
+			<label>
+				Music
+				<input type="text" name="song" value="{{song.unwrap_or("")}}" />
+			</label>
+			<label>
+				Mood
+				<input type="text" name="mood" value="{{mood.unwrap_or("")}}" />
+			</label>

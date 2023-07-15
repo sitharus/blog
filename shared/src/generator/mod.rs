@@ -25,7 +25,7 @@ pub async fn external_preview(id: i32) -> anyhow::Result<cgi::Response> {
     let maybe_post = query_as!(
         HydratedPost,
         "
-SELECT posts.id as id, post_date, url_slug, title, body, users.display_name AS author_name, (SELECT COUNT(*) FROM comments WHERE comments.post_id = posts.id) AS comment_count
+SELECT posts.id as id, post_date, url_slug, title, body, song, mood, users.display_name AS author_name, (SELECT COUNT(*) FROM comments WHERE comments.post_id = posts.id) AS comment_count
 FROM posts
 INNER JOIN users
 ON users.id = posts.author_id

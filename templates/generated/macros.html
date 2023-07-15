@@ -13,8 +13,21 @@
 		{{ post.body.clone()|format_markdown(common)|safe }}
 
 		<footer>
-			<a href="{{post|posturl(common)}}#comments"> {{post.comment_count.unwrap_or(0)}} {{"comment"|pluralise(post.comment_count)}}
-			<a href="{{post|posturl(common)}}">Permalink</a>
+			<div class="greebles">
+				{% if post.song.as_deref().unwrap_or("") != "" %}
+				<p class="song">
+					<img src="{{common.static_base_url}}/music.svg">
+					{{post.song.as_deref().unwrap_or("")}}
+				</p>
+				{% endif %}
+				{% if post.mood.as_deref().unwrap_or("") != "" %}
+				<p class="mood">{{post.mood.as_deref().unwrap_or("")}}</p>
+				{% endif %}
+			</div>
+			<div class="links">
+				<a href="{{post|posturl(common)}}#comments"> {{post.comment_count.unwrap_or(0)}} {{"comment"|pluralise(post.comment_count)}}
+				<a href="{{post|posturl(common)}}">Permalink</a>
+			</div>
 		</footer>
 	</article>
 {% endmacro %}

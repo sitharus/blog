@@ -97,6 +97,8 @@ pub async fn preview_page(request: &cgi::Request) -> anyhow::Result<cgi::Respons
         url_slug: "preview".into(),
         title: data.get("title").ok_or(anyhow!("No title!"))?.to_string(),
         body: data.get("body").ok_or(anyhow!("no body!"))?.to_string(),
+        song: data.get("song").cloned(),
+        mood: data.get("mood").cloned(),
         author_name: user.display_name,
         comment_count: Some(0),
     };
@@ -120,7 +122,7 @@ pub async fn regenerate_blog(request: &cgi::Request) -> anyhow::Result<cgi::Resp
     let posts = query_as!(
         HydratedPost,
         "
-SELECT posts.id as id, post_date, url_slug, title, body, users.display_name AS author_name, (SELECT COUNT(*) FROM comments WHERE comments.post_id = posts.id) AS comment_count
+SELECT posts.id as id, post_date, url_slug, title, body, song, mood, users.display_name AS author_name, (SELECT COUNT(*) FROM comments WHERE comments.post_id = posts.id) AS comment_count
 FROM posts
 INNER JOIN users
 ON users.id = posts.author_id
