@@ -1,4 +1,3 @@
-use async_std::task;
 use chrono::{DateTime, FixedOffset, Utc};
 use lazy_static::lazy_static;
 use percent_encoding::percent_decode_str;
@@ -9,6 +8,7 @@ use std::fs::File;
 use std::io::{self, BufRead};
 use std::net::IpAddr;
 use std::path::Path;
+use tokio::runtime::Runtime;
 
 use clap::Parser;
 
@@ -38,7 +38,8 @@ struct LogLine<'a> {
 
 fn main() {
     let args = Options::parse();
-    task::block_on(parse_file(args))
+    let runtime = Runtime::new().unwrap();
+    runtime.block_on(parse_file(args))
 }
 
 async fn parse_file(args: Options) {
