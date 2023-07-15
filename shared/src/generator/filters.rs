@@ -99,8 +99,10 @@ where
 
                 html.push_str("<picture>");
                 html.push_str(&format!(
-                    r#"<source srcset="{}" type="{}">"#,
-                    image.metadata.fullsize_name, image.metadata.content_type
+                    r#"<source srcset="{}{}" type="{}">"#,
+                    common.media_base_url,
+                    image.metadata.fullsize_name,
+                    image.metadata.content_type
                 ));
 
                 html.push_str(&format!(r#"<img src="{}" title="{}" alt=""#, dest, title));
