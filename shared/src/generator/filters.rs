@@ -76,7 +76,11 @@ pub fn format_weekday(date: &NaiveDate) -> ::askama::Result<String> {
     Ok(format!("{} {}", weekday, day))
 }
 
-pub fn format_markdown<S>(content: S, common: &CommonData) -> ::askama::Result<String>
+pub fn format_markdown<S>(
+    content: S,
+    common: &CommonData,
+    before_cut: bool,
+) -> ::askama::Result<String>
 where
     S: AsRef<str>,
 {
@@ -113,8 +117,18 @@ where
         },
         _ => event,
     });
-
     let mut html_output = String::new();
-    pulldown_cmark::html::push_html(&mut html_output, parser);
+
+    match before_cut {
+        true => pulldown_cmark::html::push_html(
+            &mut html_output,
+            parser.take_while(|e| match e {
+                Event::Html(node) if node.starts_with("<blog-cut>") => false,
+                _ => true,
+            }),
+        ),
+        false => pulldown_cmark::html::push_html(&mut html_output, parser),
+    };
+
     Ok(html_output)
 }

@@ -11,7 +11,7 @@
 
 	<main>
 	{% for post in posts %}
-		{% call macros::format_post(post) %}
+		{% call macros::format_post(post, true) %}
 	{% endfor %}
 	</main>
 {% endblock %}

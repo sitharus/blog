@@ -12,7 +12,7 @@
 				<li><a href="{{common.base_url}}{{post.post_date.year()}}/{{post.post_date.month()|month_name}}">{{post.post_date.month()|month_name}}</a></li>
 			</ul>
 		</nav>
-		{% call macros::format_post(post) %}
+		{% call macros::format_post(post, false) %}
 
 			<section id="comments">
 				<h1>Comments</h1>

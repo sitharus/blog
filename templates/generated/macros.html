@@ -1,4 +1,4 @@
-{% macro format_post(post) %}
+{% macro format_post(post, before_cut) %}
 	<article>
 		<header>
 			<h1><a href="{{post|posturl(common)}}">{{ post.title }}</a></h1>
@@ -10,7 +10,7 @@
 				{%- endmatch -%}
 			</p>
 		</header>
-		{{ post.body.clone()|format_markdown(common)|safe }}
+		{{ post.body.clone()|format_markdown(common, before_cut.to_owned())|safe }}
 
 		<footer>
 			<div class="greebles">
