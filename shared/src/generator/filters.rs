@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::utils::blog_post_url;
 
 use super::{CommonData, HydratedPost};
@@ -84,6 +86,8 @@ pub fn format_markdown<S>(
 where
     S: AsRef<str>,
 {
+    let mut current_image: String = String::new();
+    let mut in_image = false;
     let parser = pulldown_cmark::Parser::new(content.as_ref()).map(|event| match &event {
         /*
         An image is represented as three events: Start(Tag::Image) Text(alt text) End(Tag::Image)
@@ -92,7 +96,18 @@ where
         */
         Event::Start(tag) => match tag {
             Tag::Image(_link_type, destination, title) if destination.starts_with("!!") => {
-                let image_id: i32 = destination[2..].parse().unwrap();
+                let dest_args: Vec<&str> = destination.split("?").collect();
+                let image_id: i32 = dest_args[0][2..].parse().unwrap();
+                let args: HashMap<String, String> = if dest_args.len() > 1 {
+                    serde_querystring::from_str(
+                        dest_args[1],
+                        serde_querystring::ParseMode::UrlEncoded,
+                    )
+                    .unwrap()
+                } else {
+                    HashMap::new()
+                };
+
                 let image = common.media.get(&image_id).unwrap();
                 let dest = format!("{}{}", common.media_base_url, image.metadata.fullsize_name);
                 let mut html = String::new();
@@ -105,15 +120,28 @@ where
                     image.metadata.content_type
                 ));
 
-                html.push_str(&format!(r#"<img src="{}" title="{}" alt=""#, dest, title));
+                in_image = true;
+                current_image.push_str(&format!(r#"<img src="{}" title="{}""#, dest, title));
 
-                Event::Html(html.into())
+                if let Some(a) = args.get("class") {
+                    current_image.push_str(&format!(r#" class="{}" "#, a));
+                }
+
+                Event::Text("".into())
             }
             _ => event,
         },
+        Event::Text(txt) if in_image => {
+            current_image.push_str(&format!(r#" alt="{}" "#, txt));
+            Event::Text("".into())
+        }
         Event::End(tag) => match tag {
             Tag::Image(_link_type, destination, _title) if destination.starts_with("!!") => {
-                Event::Html(r#""></picture>"#.into())
+                current_image.push_str("></picture>");
+                let tag = current_image.clone();
+                current_image = String::new();
+                in_image = false;
+                Event::Html(tag.into())
             }
             _ => event,
         },
