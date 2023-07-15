@@ -1,11 +1,12 @@
-use async_std::task;
 use std::env;
+use tokio::runtime::Runtime;
 
 use sqlx::postgres::PgConnection;
 use sqlx::Connection;
 
 fn main() {
-    task::block_on(migrate());
+    let runtime = Runtime::new().unwrap();
+    runtime.block_on(migrate());
 }
 
 async fn migrate() {
