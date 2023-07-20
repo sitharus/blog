@@ -43,7 +43,7 @@ ON k.actor = t.target
 WHERE o.all_delivered = false
 AND t.delivered = false
 AND t.retries < 5
-ORDER BY o.created_at, t.target
+ORDER BY t.retries, o.created_at, t.target
 "#
     )
     .fetch_all(&mut *connection)
