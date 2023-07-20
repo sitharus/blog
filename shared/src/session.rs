@@ -22,7 +22,7 @@ pub async fn has_valid_session(
                 match cookie_parts.get("blog_session") {
                     Some(blog_session) => {
                         let saved_session = sqlx::query!(
-                            "SELECT expiry FROM session WHERE id=$1",
+                            "SELECT expiry FROM session WHERE id=$1::uuid",
                             blog_session as _
                         )
                         .fetch_one(connection)
