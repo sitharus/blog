@@ -33,17 +33,25 @@
 	--text-colour: rgb(20, 20, 20);
 
 	--flag-gradient: var(--gradient-blue) 0,
-								  var(--gradient-blue) 5px,
-								  var(--gradient-pink) 5px,
-								  var(--gradient-pink) 10px,
-								  var(--gradient-white) 10px,
-								  var(--gradient-white) 15px,
-								  var(--gradient-pink) 15px,
-								  var(--gradient-pink) 20px,
-								  var(--gradient-blue) 20px,
-								  var(--gradient-blue) 25px,
-								  var(--gradient-divider) 25px,
-								  var(--gradient-divider) 26px;
+					var(--gradient-blue) 5px,
+					var(--gradient-pink) 5px,
+					var(--gradient-pink) 10px,
+					var(--gradient-white) 10px,
+					var(--gradient-white) 15px,
+					var(--gradient-pink) 15px,
+					var(--gradient-pink) 20px,
+					var(--gradient-blue) 20px,
+					var(--gradient-blue) 25px,
+					var(--gradient-divider) 25px,
+					var(--gradient-divider) 26px;
+
+	--article-font-weight: 300;
+}
+
+@media screen and ((max-resolution: 120dpi) or (-webkit-max-device-pixel-ratio: 1) or (--moz-max-device-pixel-ratio: 1)) {
+	:root {
+		--article-font-weight: 400;
+	}
 }
 
 @font-face {
@@ -192,7 +200,7 @@ article > footer a {
 
 article {
 	line-height: 1.4;
-	font-weight: 300;
+	font-weight: var(--article-font-weight);
 	font-variant: oldstyle-nums;
 	font-size: medium;
 	padding-bottom: 2rem;
@@ -385,10 +393,15 @@ summary {
 
 @media(max-width: 1024px) {
 	body {
-		grid-template: "header" minmax(6rem, auto)
+		grid-template: "header" minmax(4rem, auto)
 					   "mininav" 2rem
 					   "content" auto
-					   "mainnav" auto / 1fr;
+					   "mainnav" auto / 100vw;
+	}
+
+	body > header > h1 {
+		margin: 0 0.5rem;
+		font-size: xx-large;
 	}
 
 	body > nav.sidebar {
@@ -406,15 +419,31 @@ summary {
 
 	body > nav.mini {
 		display: flex;
+		padding: 0 0.5rem;
 	}
 
 
+	body > nav.sidebar {
+		flex-wrap: wrap;
+		justify-content: space-around;
+	}
+
 	body > nav.sidebar > * {
-		margin-right: 2rem;
+		flex: 1 1 auto;
+		margin: 0 0.5rem 1rem 0.5rem;
+	}
+
+	body > main {
+		padding-left: 0.5rem;
+		padding-right: 0.5rem;
 	}
 
 	nav.sidebar h1 {
 		margin-top: 0;
+	}
+
+	nav.sidebar .homenav {
+		display: none;
 	}
 }
 
