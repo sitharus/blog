@@ -19,7 +19,7 @@ use crate::filters;
 #[template(path = "dashboard.html")]
 struct Dashboard {
     common: Common,
-    recent_posts: Vec<Post>,
+    recent_posts: Vec<DashboardPost>,
     followers: Vec<Follower>,
 }
 
@@ -28,15 +28,24 @@ struct Follower {
     first_seen: DateTime<Utc>,
 }
 
+struct DashboardPost {
+    pub id: i32,
+    pub post_date: chrono::NaiveDate,
+    pub title: String,
+    pub comment_count: i64,
+    pub like_count: i64,
+}
+
 pub async fn render(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
     let mut connection = database::connect_db().await?;
     session::session_id(&mut connection, &request).await?;
 
     let recent_posts = query_as!(
-        Post,
+        DashboardPost,
         r#"
-SELECT id, author_id, post_date, created_date, updated_date, state as "state: PostStatus",
-       url_slug, title, body
+SELECT id, post_date, title,
+       (SELECT COUNT(*) FROM comments WHERE comments.post_id=posts.id) AS "comment_count!",
+       (SELECT COUNT(*) FROM activitypub_likes WHERE activitypub_likes.post_id=posts.id) AS "like_count!"
 FROM posts
 WHERE state = 'published'
 ORDER BY post_date DESC

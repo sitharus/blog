@@ -6,7 +6,7 @@ use crate::utils::jsonld_response;
 use anyhow::{anyhow, bail};
 use cgi::http::{header, Method};
 use serde_json::Value;
-use shared::activities::{Activity, Create, Delete, Follow, OrderedCollection, Undo};
+use shared::activities::{Activity, Create, Delete, Follow, Like, OrderedCollection, Undo};
 use shared::session::has_valid_session;
 use shared::settings::Settings;
 use sqlx::types::Json;
@@ -104,10 +104,15 @@ async fn process_inbound(
             }
             mark_as_processed(inbox_id, connection).await
         }
-        e => {
+        Ok(Activity::Like(like)) => {
+            process_like(inbox_id, like, connection, settings).await?;
+            mark_as_processed(inbox_id, connection).await
+        }
+        Err(e) => {
             dbg!("{:?}", e);
             Ok(())
         }
+        _ => Ok(()),
     }
 }
 
@@ -215,4 +220,33 @@ async fn process_create(
         }
         _ => bail!("Unknown create type"),
     }
+}
+
+async fn process_like(
+    item_id: i64,
+    like: Like,
+    connection: &mut PgConnection,
+    settings: &Settings,
+) -> anyhow::Result<()> {
+    let actor = get_actor(like.actor.to_owned(), connection, settings).await?;
+    let activity = query!(
+        "SELECT source_post FROM activitypub_outbox WHERE activity_id=$1",
+        like.object
+    )
+    .fetch_optional(&mut *connection)
+    .await?;
+
+    if let Some(source) = activity {
+        if let Some(source_id) = source.source_post {
+            query!(
+            "INSERT INTO activitypub_likes(post_id, inbox_item_id, actor_id) VALUES($1, $2, $3)",
+            source_id,
+            item_id,
+            actor.id
+        )
+            .execute(&mut *connection)
+            .await?;
+        }
+    }
+    Ok(())
 }

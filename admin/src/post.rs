@@ -31,6 +31,7 @@ struct NewPost<'a> {
     slug: &'a str,
     song: Option<&'a str>,
     mood: Option<&'a str>,
+    summary: Option<&'a str>,
     date: &'a NaiveDate,
     status: PostStatus,
 }
@@ -44,6 +45,7 @@ struct EditPost<'a> {
     slug: &'a str,
     song: Option<&'a str>,
     mood: Option<&'a str>,
+    summary: Option<&'a str>,
     date: &'a NaiveDate,
     status: PostStatus,
 }
@@ -57,6 +59,7 @@ struct NewPostRequest {
     slug: String,
     song: Option<String>,
     mood: Option<String>,
+    summary: Option<String>,
 }
 
 #[derive(Template)]
@@ -95,9 +98,10 @@ pub async fn new_post(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
         let result = sqlx::query!(
             r#"
 INSERT INTO posts(
-    author_id, post_date, created_date, updated_date, state, url_slug, title, body, song, mood
+    author_id, post_date, created_date, updated_date, state,
+    url_slug, title, body, song, mood, summary
 )
-VALUES($1, $6, current_timestamp, current_timestamp, $5, $2, $3, $4, $7, $8)"#,
+VALUES($1, $6, current_timestamp, current_timestamp, $5, $2, $3, $4, $7, $8, $9)"#,
             user_id,
             final_slug,
             req.title,
@@ -105,7 +109,8 @@ VALUES($1, $6, current_timestamp, current_timestamp, $5, $2, $3, $4, $7, $8)"#,
             &req.status as &PostStatus,
             req.date,
             req.song,
-            req.mood
+            req.mood,
+            req.summary
         )
         .execute(&mut connection)
         .await?;
@@ -121,6 +126,7 @@ VALUES($1, $6, current_timestamp, current_timestamp, $5, $2, $3, $4, $7, $8)"#,
                 slug: final_slug,
                 mood: req.mood.as_deref(),
                 song: req.song.as_deref(),
+                summary: req.song.as_deref(),
             };
             render_html(content)
         };
@@ -133,6 +139,7 @@ VALUES($1, $6, current_timestamp, current_timestamp, $5, $2, $3, $4, $7, $8)"#,
         slug: "",
         mood: None,
         song: None,
+        summary: None,
         status: PostStatus::Draft,
         date: &Utc::now().date_naive(),
     };
@@ -153,7 +160,7 @@ pub async fn edit_post(
         let req: NewPostRequest = post_body(request)?;
         let status = req.status.clone();
         query!(
-            "UPDATE posts SET title=$1, body=$2, state=$3, post_date = $4, url_slug=$5, song=$6, mood=$7 WHERE id=$8",
+            "UPDATE posts SET title=$1, body=$2, state=$3, post_date = $4, url_slug=$5, song=$6, mood=$7, summary=$8 WHERE id=$9",
             req.title,
             req.body,
             req.status as PostStatus,
@@ -161,6 +168,7 @@ pub async fn edit_post(
             req.slug,
             req.song,
             req.mood,
+            req.summary,
             id
         )
         .execute(&mut connection)
@@ -170,7 +178,7 @@ pub async fn edit_post(
         }
     }
     let post = sqlx::query!(
-        r#"SELECT title, body, url_slug, state as "state: PostStatus", post_date, song, mood  FROM posts WHERE id = $1"#,
+        r#"SELECT title, body, url_slug, state as "state: PostStatus", post_date, song, mood, summary  FROM posts WHERE id = $1"#,
         id
     )
     .fetch_one(&mut connection)
@@ -187,6 +195,7 @@ pub async fn edit_post(
         slug: &post.url_slug,
         mood: post.mood.as_deref(),
         song: post.song.as_deref(),
+        summary: post.summary.as_deref(),
     };
     render_html(content)
 }

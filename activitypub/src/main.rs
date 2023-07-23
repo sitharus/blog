@@ -1,4 +1,5 @@
 use actor::{refresh_actor, Actor};
+use anyhow::bail;
 use cgi::http::{header, response, Uri};
 use shared::{
     activities::OrderedCollection,
@@ -19,10 +20,33 @@ mod inbox;
 mod outbox;
 mod utils;
 
-cgi::cgi_try_main! { |request: cgi::Request| -> anyhow::Result<cgi::Response> {
+fn main() -> Result<(), anyhow::Error> {
+    let args: Vec<String> = env::args().collect();
     let runtime = Runtime::new().unwrap();
-    runtime.block_on(process(request))
-}}
+
+    if args.len() == 1 && args[0] == "--process-outbox" {
+        match runtime.block_on(cli_run()) {
+            Ok(a) => {
+                println!("{}", a);
+                Ok(())
+            }
+            Err(e) => bail!(e),
+        }
+    } else {
+        Ok(cgi::handle(|request: cgi::Request| -> cgi::Response {
+            match runtime.block_on(process(request)) {
+                Ok(a) => a,
+                Err(_) => cgi::text_response(500, "Internal server error"),
+            }
+        }))
+    }
+}
+
+async fn cli_run() -> anyhow::Result<String> {
+    let mut connection = connect_db().await?;
+    let settings = get_settings_struct(&mut connection).await?;
+    outbox::process(&mut connection, settings).await
+}
 
 async fn process(request: cgi::Request) -> anyhow::Result<cgi::Response> {
     let mut connection = connect_db().await?;
@@ -64,7 +88,6 @@ async fn process(request: cgi::Request) -> anyhow::Result<cgi::Response> {
             inbox::reprocess(&request, &query_string, &mut connection, &settings).await
         }
         "/activitypub/outbox" => outbox::render(&mut connection).await,
-        "/activitypub/outbox/process" => outbox::process(&request, &mut connection, settings).await,
         "/activitypub/followers" => followers(&request, &mut connection).await,
         "/activitypub/following" => following(&request).await,
         "/activitypub/refresh" => {

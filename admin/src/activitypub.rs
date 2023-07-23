@@ -56,7 +56,7 @@ pub async fn publish_posts(
         .map(|r| r.actor.unwrap())
         .collect();
 
-    let to_post = query!("SELECT id, title, url_slug, post_date FROM posts p WHERE NOT EXISTS (SELECT 1 FROM activitypub_outbox o WHERE o.source_post = p.id) AND p.state = 'published'")
+    let to_post = query!("SELECT id, title, summary, url_slug, post_date FROM posts p WHERE NOT EXISTS (SELECT 1 FROM activitypub_outbox o WHERE o.source_post = p.id) AND p.state = 'published'")
         .fetch_all(&mut connection)
         .await?;
 
@@ -68,7 +68,11 @@ pub async fn publish_posts(
             .ok_or(anyhow!("Failed to make time"))?
             .and_utc();
 
-        let content = format!(r#"New post! <a href="{}">{}</a>"#, post_url, post.title);
+        let summary = post.summary.unwrap_or("New post!".into());
+        let content = format!(
+            r#"<p>{}</p><p><a href="{}">{}</a></p>"#,
+            summary, post_url, post.title
+        );
         let note = Activity::note(
             content,
             post_url.clone(),

@@ -21,6 +21,10 @@
 			<label for="body">Content</label>
 			<textarea name="body">{{body}}</textarea>
 			<label>
+				Social media summary
+				<input type="text" name="summary" value="{{summary.unwrap_or("")}}" />
+			</label>
+			<label>
 				Music
 				<input type="text" name="song" value="{{song.unwrap_or("")}}" />
 			</label>

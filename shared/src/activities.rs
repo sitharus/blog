@@ -50,6 +50,7 @@ pub enum Activity {
     Create(Create),
     Undo(Undo),
     Delete(Delete),
+    Like(Like),
 }
 
 impl Activity {
@@ -179,4 +180,10 @@ pub struct Undo {
     context: String,
     actor: String,
     pub object: Box<Activity>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Like {
+    pub actor: String,
+    pub object: String,
 }

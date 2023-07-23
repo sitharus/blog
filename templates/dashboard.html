@@ -9,6 +9,8 @@
 				<tr>
 					<th>Title</th>
 					<th>Posted on</th>
+					<th>Comments</th>
+					<th>Likes</th>
 					<th>Actions</th>
 				</tr>
 			</thead>
@@ -17,6 +19,8 @@
 					<tr>
 						<td>{{ post.title }}</td>
 						<td>{{ post.post_date|format_long_date }}</td>
+						<td>{{ post.comment_count }}</td>
+						<td>{{ post.like_count }}</td>
 						<td>
 							<a href="?action=edit_post&id={{post.id}}">Edit</a>
 							<a href="?action=send_post&id={{post.id}}">Send</a>
