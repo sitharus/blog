@@ -1,5 +1,20 @@
 {% extends "base.html" %}
 {% import "macros.html" as macros %}
+{% block header %}
+<link href="{{post|posturl(common)}}" rel="alternative" type="application/activity+json">
+<meta content="article" property="og:type" />
+<meta content="{{post.title}}" property="og:title" />
+<meta content="{{post|posturl(common)}}" property="og:url" />
+<meta content="{{post.post_date|format_rfc3339_date}}" property="og:published_time" />
+
+{% match post.summary %}
+{% when Some with (summary) %}
+<meta content="{{summary}}" property="og:description">
+{% when None %}
+{% endmatch %}
+<meta content="summary" property="twitter:card" />
+{% endblock %}
+
 {% block body  %}
 	<header>
 		<h1>{{post.title}}</h1>

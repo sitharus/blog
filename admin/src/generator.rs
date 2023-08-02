@@ -176,14 +176,14 @@ async fn generate_post_page(
     common: &CommonData,
     connection: &mut sqlx::PgConnection,
 ) -> anyhow::Result<()> {
-    let comments = query_as!(HydratedComment, "SELECT author_name, post_body, created_date FROM comments WHERE post_id=$1 AND status = 'approved' ORDER BY created_date ASC", post.id).fetch_all(connection).await?;
+    let comments = query_as!(HydratedComment, "SELECT author_name, post_body, created_date FROM comments WHERE post_id=$1 AND status = 'approved' ORDER BY created_date ASC", post.id).fetch_all(&mut *connection).await?;
 
     let month_name = Month::from_u32(post.post_date.month())
         .ok_or(anyhow!("Bad month number"))?
         .name();
     let dir = format!("{}/{}/{}", output_path, post.post_date.year(), month_name);
-    let post_path = format!("{}/{}.html", dir, post.url_slug);
-    create_dir_all(dir).await?;
+    let post_path = format!("{}/{}.html", &dir, post.url_slug);
+    create_dir_all(&dir).await?;
 
     let mut file = File::create(post_path)?;
     let post_page = PostPage {
@@ -195,6 +195,19 @@ async fn generate_post_page(
 
     let rendered = post_page.render()?;
     write!(&mut file, "{}", rendered)?;
+
+    let activitypub = query!(
+        "SELECT activity FROM activitypub_outbox WHERE source_post=$1",
+        post.id
+    )
+    .fetch_optional(&mut *connection)
+    .await?;
+
+    if let Some(row) = activitypub {
+        let json_path = format!("{}/{}.json", &dir, post.url_slug);
+        let mut json_file = File::create(json_path)?;
+        write!(&mut json_file, "{}", row.activity)?;
+    }
     Ok(())
 }
 
