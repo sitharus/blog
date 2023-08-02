@@ -1,5 +1,6 @@
 use crate::response::redirect_response;
 use crate::session::{self, session_id};
+use shared::activities::Activity;
 use shared::database::{self, connect_db};
 use shared::generator::{filters, get_common};
 use shared::types::{CommonData, HydratedComment, HydratedPost};
@@ -10,7 +11,7 @@ use askama::Template;
 use chrono::{offset::Utc, DateTime, Datelike, Month, NaiveDate};
 use itertools::Itertools;
 use num_traits::FromPrimitive;
-use sqlx::{query, query_as};
+use sqlx::{query, query_as, types::Json};
 use std::collections::HashMap;
 use std::env;
 use std::fs::File;
@@ -197,16 +198,20 @@ async fn generate_post_page(
     write!(&mut file, "{}", rendered)?;
 
     let activitypub = query!(
-        "SELECT activity FROM activitypub_outbox WHERE source_post=$1",
+        r#"SELECT activity AS "activity: Json<Activity>" FROM activitypub_outbox WHERE source_post=$1"#,
         post.id
     )
     .fetch_optional(&mut *connection)
     .await?;
 
     if let Some(row) = activitypub {
-        let json_path = format!("{}/{}.json", &dir, post.url_slug);
-        let mut json_file = File::create(json_path)?;
-        write!(&mut json_file, "{}", row.activity)?;
+        if let Activity::Create(create) = row.activity.as_ref() {
+            if let Activity::Note(note) = create.object() {
+                let json_path = format!("{}/{}.json", &dir, post.url_slug);
+                let mut json_file = File::create(json_path)?;
+                write!(&mut json_file, "{}", serde_json::to_string(note)?)?;
+            }
+        }
     }
     Ok(())
 }
