@@ -24,7 +24,7 @@ fn main() -> Result<(), anyhow::Error> {
     let args: Vec<String> = env::args().collect();
     let runtime = Runtime::new().unwrap();
 
-    if args.len() == 1 && args[0] == "--process-outbox" {
+    if args.len() == 2 && args[1] == "--process-outbox" {
         match runtime.block_on(cli_run()) {
             Ok(a) => {
                 println!("{}", a);
