@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block content %}
+	<h1> Tags </h1>
+	<form method="POST">
+	<ul>
+		{% for tag in tags %}
+			<li>{{tag.name}} <button class="as-link" type="submit" name="delete" value="{{tag.id}}">Delete</button> </li>
+		{% endfor %}
+	</ul>
+
+
+
+	<section>
+		<label>New Tag
+			<input type="text" name="new" />
+		</label>
+		<button type="submit" name="create" value="true">Create</button>
+	</section>
+	
+	</form>
+	
+{% endblock %}

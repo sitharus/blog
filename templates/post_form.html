@@ -32,3 +32,11 @@
 				Mood
 				<input type="text" name="mood" value="{{mood.unwrap_or("")}}" />
 			</label>
+			<label>
+				Tags
+				<select name="tags" multiple>
+					{% for tag in all_tags %}
+						<option value="{{tag.id}}" {% if tags.contains(tag.id) %}selected{% endif %}>{{tag.name}}</option>
+					{% endfor %}
+				</select>
+			</label>

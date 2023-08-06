@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 
-use anyhow::anyhow;
+use anyhow::{anyhow, bail};
 use askama::Template;
 use cgi;
+use common::{get_common, Common};
 use generator::preview_page;
 use media::manage_media;
 use serde::Deserialize;
@@ -28,6 +29,7 @@ mod post;
 mod response;
 mod session;
 mod settings;
+mod tags;
 mod types;
 
 #[derive(Template)]
@@ -40,6 +42,13 @@ struct Index<'a> {
 #[derive(Template)]
 #[template(path = "404.html")]
 struct Page404 {}
+
+#[derive(Template)]
+#[template(path = "500.html")]
+struct Page500<'a> {
+    common: Common,
+    message: &'a str,
+}
 
 #[derive(Deserialize)]
 struct LoginForm {
@@ -111,7 +120,10 @@ async fn do_404() -> anyhow::Result<cgi::Response> {
     render_html_status(404, content)
 }
 
-async fn process(request: &cgi::Request, query_string: &str) -> anyhow::Result<cgi::Response> {
+async fn process_inner(
+    request: &cgi::Request,
+    query_string: &str,
+) -> anyhow::Result<cgi::Response> {
     let query: HashMap<String, String> = parse_query_string(query_string)?;
 
     let action = query.get("action").ok_or(anyhow!("No action supplied"))?;
@@ -139,8 +151,26 @@ async fn process(request: &cgi::Request, query_string: &str) -> anyhow::Result<c
             "publish_posts" => activitypub::publish_posts(request, query).await,
             "send_post" => activitypub::send(request, query).await,
             "activitypub_feed" => activitypub::feed().await,
+            "tags" => tags::render(request).await,
             _ => do_404().await,
         }
+    }
+}
+
+async fn render_500(e: anyhow::Error) -> anyhow::Result<cgi::Response> {
+    let mut connection = database::connect_db().await?;
+    let common = get_common(&mut connection, types::AdminMenuPages::Dashboard).await?;
+    render_html(Page500 {
+        common,
+        message: e.to_string().as_ref(),
+    })
+}
+
+async fn process(request: &cgi::Request, query_string: &str) -> anyhow::Result<cgi::Response> {
+    match process_inner(request, query_string).await {
+        Err(e) if e.is::<SessionError>() => bail!(e),
+        Err(e) => render_500(e).await,
+        x => x,
     }
 }
 

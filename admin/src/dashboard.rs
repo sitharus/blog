@@ -5,11 +5,7 @@ use crate::{
 use askama::Template;
 use cgi;
 use chrono::{DateTime, Utc};
-use shared::{
-    database,
-    types::{Post, PostStatus},
-    utils::render_html,
-};
+use shared::{database, utils::render_html};
 use sqlx::query_as;
 
 use super::session;

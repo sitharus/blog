@@ -24,14 +24,26 @@ pub async fn external_preview(id: i32) -> anyhow::Result<cgi::Response> {
     let mut connection = connect_db().await?;
     let maybe_post = query_as!(
         HydratedPost,
-        "
-SELECT posts.id as id, post_date, url_slug, title, body, song, mood, summary, users.display_name AS author_name, (SELECT COUNT(*) FROM comments WHERE comments.post_id = posts.id) AS comment_count
+        r#"
+SELECT
+    posts.id as id,
+    post_date,
+    url_slug,
+    title,
+    body,
+    song,
+    mood,
+    summary,
+    users.display_name AS author_name,
+    (SELECT COUNT(*) FROM comments WHERE comments.post_id = posts.id) AS comment_count,
+    (SELECT array_agg(t.name) FROM tags t INNER JOIN post_tag pt ON pt.tag_id = t.id WHERE pt.post_id = posts.id) AS tags
 FROM posts
 INNER JOIN users
 ON users.id = posts.author_id
 WHERE state = 'preview'
 AND posts.id=$1
-ORDER BY post_date DESC", id
+"#,
+        id
     )
     .fetch_optional(&mut connection)
     .await?;

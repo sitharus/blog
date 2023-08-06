@@ -1,5 +1,6 @@
 use crate::response::redirect_response;
 use crate::session::{self, session_id};
+use crate::types::PostRequest;
 use shared::activities::Activity;
 use shared::database::{self, connect_db};
 use shared::generator::{filters, get_common};
@@ -12,10 +13,10 @@ use chrono::{offset::Utc, DateTime, Datelike, Month, NaiveDate};
 use itertools::Itertools;
 use num_traits::FromPrimitive;
 use sqlx::{query, query_as, types::Json};
-use std::collections::HashMap;
 use std::env;
 use std::fs::File;
 use std::io::prelude::*;
+use std::vec::IntoIter;
 use tokio::fs::create_dir_all;
 
 #[derive(Template)]
@@ -32,7 +33,7 @@ struct PostPage<'a> {
 struct IndexPage<'a> {
     title: &'a str,
     common: &'a CommonData,
-    posts: &'a [HydratedPost],
+    posts: Vec<&'a HydratedPost>,
 }
 
 #[derive(Template)]
@@ -89,20 +90,30 @@ pub async fn preview_page(request: &cgi::Request) -> anyhow::Result<cgi::Respons
     .fetch_one(&mut connection)
     .await?;
 
-    let data: HashMap<String, String> = post_body(request)?;
-    let date_str = data.get("date").ok_or(anyhow!("No date!"))?;
-    let post_date = NaiveDate::parse_from_str(&date_str, "%Y-%m-%d")?;
+    let data: PostRequest = post_body(request)?;
+
+    let mut tags: Vec<String> = Vec::new();
+    if let Some(tag_ids) = data.tags {
+        for t in tag_ids {
+            let result = query!("SELECT name FROM tags WHERE id=$1", t)
+                .fetch_one(&mut connection)
+                .await?;
+            tags.push(result.name);
+        }
+    }
+
     let post = HydratedPost {
         id: 0,
-        post_date,
+        post_date: data.date,
         url_slug: "preview".into(),
-        title: data.get("title").ok_or(anyhow!("No title!"))?.to_string(),
-        body: data.get("body").ok_or(anyhow!("no body!"))?.to_string(),
-        song: data.get("song").cloned(),
-        mood: data.get("mood").cloned(),
-        summary: data.get("summary").cloned(),
+        title: data.title,
+        body: data.body,
+        song: data.song,
+        mood: data.mood,
+        summary: data.summary,
         author_name: user.display_name,
         comment_count: Some(0),
+        tags: Some(tags),
     };
 
     let post_page = PostPage {
@@ -123,13 +134,25 @@ pub async fn regenerate_blog(request: &cgi::Request) -> anyhow::Result<cgi::Resp
 
     let posts = query_as!(
         HydratedPost,
-        "
-SELECT posts.id as id, post_date, url_slug, title, body, song, mood, summary, users.display_name AS author_name, (SELECT COUNT(*) FROM comments WHERE comments.post_id = posts.id) AS comment_count
+        r#"
+SELECT
+    posts.id as id,
+    post_date,
+    url_slug,
+    title,
+    body,
+    song,
+    mood,
+    summary,
+    users.display_name AS author_name,
+    (SELECT COUNT(*) FROM comments WHERE comments.post_id = posts.id) AS comment_count,
+    (SELECT array_agg(t.name) FROM tags t INNER JOIN post_tag pt ON pt.tag_id = t.id WHERE pt.post_id = posts.id) AS tags
 FROM posts
 INNER JOIN users
 ON users.id = posts.author_id
 WHERE state = 'published'
-ORDER BY post_date DESC"
+ORDER BY post_date DESC
+"#
     )
     .fetch_all(&mut connection)
     .await?;
@@ -144,7 +167,29 @@ ORDER BY post_date DESC"
         generate_post_page(&output_path, post, &common, &mut connection).await?;
     }
 
-    for (pos, chunk) in posts.chunks(10).enumerate() {
+    generate_paged(
+        posts.iter().collect::<Vec<&HydratedPost>>().into_iter(),
+        &common,
+        &output_path,
+    )
+    .await?;
+
+    regenerate_month_index_pages(&output_path, &posts, &common).await?;
+    regenerate_year_index_pages(&output_path, &posts, &common).await?;
+    regenerate_rss_feed(&output_path, &posts, &common).await?;
+    regenerate_atom_feed(&output_path, &posts, &common).await?;
+    regenerate_tag_indexes(&mut connection, &output_path, &posts, &common).await?;
+    regenerate_pages(&output_path, &mut connection, &common).await?;
+
+    Ok(redirect_response("dashboard"))
+}
+
+async fn generate_paged<'a>(
+    posts: IntoIter<&HydratedPost>,
+    common: &CommonData,
+    output_path: &String,
+) -> anyhow::Result<()> {
+    for (pos, chunk) in posts.chunks(10).into_iter().enumerate() {
         let path = if pos == 0 {
             String::from("index.html")
         } else {
@@ -154,21 +199,14 @@ ORDER BY post_date DESC"
 
         let page = IndexPage {
             title: &common.blog_name,
-            posts: chunk,
+            posts: chunk.collect(),
             common: &common,
         };
 
         let rendered = page.render()?;
         write!(&mut file, "{}", rendered)?;
     }
-
-    regenerate_month_index_pages(&output_path, &posts, &common).await?;
-    regenerate_year_index_pages(&output_path, &posts, &common).await?;
-    regenerate_rss_feed(&output_path, &posts, &common).await?;
-    regenerate_atom_feed(&output_path, &posts, &common).await?;
-    regenerate_pages(&output_path, &mut connection, &common).await?;
-
-    Ok(redirect_response("dashboard"))
+    Ok(())
 }
 
 async fn generate_post_page(
@@ -372,6 +410,30 @@ async fn regenerate_pages(
         .render()?;
 
         write!(&mut file, "{}", page)?;
+    }
+    Ok(())
+}
+
+async fn regenerate_tag_indexes(
+    connection: &mut sqlx::PgConnection,
+    output_path: &String,
+    posts: &Vec<HydratedPost>,
+    common: &CommonData,
+) -> anyhow::Result<()> {
+    let all_tags = query!("SELECT name FROM tags")
+        .fetch_all(connection)
+        .await?;
+    for tag_row in all_tags {
+        let tag = tag_row.name;
+
+        let tag_posts = posts
+            .iter()
+            .filter(|p| p.tags.clone().map(|t| t.contains(&tag)).unwrap_or(false))
+            .sorted_by(|a, b| Ord::cmp(&b.post_date, &a.post_date));
+
+        let tag_output_path = format!("{}/tags/{}/", output_path, tag.to_lowercase());
+        create_dir_all(&tag_output_path).await?;
+        generate_paged(tag_posts.into_iter(), common, &tag_output_path).await?;
     }
     Ok(())
 }

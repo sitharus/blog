@@ -14,13 +14,18 @@ use crate::{
 use super::filters;
 use super::response;
 use super::session;
+use super::types::PostRequest;
 use anyhow::anyhow;
 use askama::Template;
 use cgi;
 use chrono::{offset::Utc, NaiveDate};
 use regex::Regex;
-use serde::Deserialize;
-use sqlx::{query, query_as};
+use sqlx::{query, query_as, PgConnection};
+
+struct DisplayTag {
+    id: i32,
+    name: String,
+}
 
 #[derive(Template)]
 #[template(path = "new_post.html")]
@@ -34,6 +39,8 @@ struct NewPost<'a> {
     summary: Option<&'a str>,
     date: &'a NaiveDate,
     status: PostStatus,
+    tags: Vec<i32>,
+    all_tags: Vec<DisplayTag>,
 }
 
 #[derive(Template)]
@@ -48,18 +55,8 @@ struct EditPost<'a> {
     summary: Option<&'a str>,
     date: &'a NaiveDate,
     status: PostStatus,
-}
-
-#[derive(Deserialize)]
-struct NewPostRequest {
-    title: String,
-    body: String,
-    date: NaiveDate,
-    status: PostStatus,
-    slug: String,
-    song: Option<String>,
-    mood: Option<String>,
-    summary: Option<String>,
+    tags: Vec<i32>,
+    all_tags: Vec<DisplayTag>,
 }
 
 #[derive(Template)]
@@ -74,6 +71,14 @@ struct ManagePosts {
     page_count: i64,
 }
 
+async fn get_tags(connection: &mut PgConnection) -> anyhow::Result<Vec<DisplayTag>> {
+    Ok(
+        query_as!(DisplayTag, "SELECT id, name FROM tags ORDER BY name")
+            .fetch_all(connection)
+            .await?,
+    )
+}
+
 pub async fn new_post(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
     let mut connection = database::connect_db().await?;
     let session::Session { user_id, .. } = session::session_id(&mut connection, &request).await?;
@@ -81,7 +86,7 @@ pub async fn new_post(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
     let common = get_common(&mut connection, AdminMenuPages::NewPost).await?;
 
     if request.method() == "POST" {
-        let req: NewPostRequest = post_body(request)?;
+        let req: PostRequest = post_body(request)?;
 
         let invalid_chars = Regex::new(r"[^a-z0-9_-]+")?;
         let mut initial_slug = if req.slug == "" {
@@ -101,7 +106,8 @@ INSERT INTO posts(
     author_id, post_date, created_date, updated_date, state,
     url_slug, title, body, song, mood, summary
 )
-VALUES($1, $6, current_timestamp, current_timestamp, $5, $2, $3, $4, $7, $8, $9)"#,
+VALUES($1, $6, current_timestamp, current_timestamp, $5, $2, $3, $4, $7, $8, $9)
+RETURNING id"#,
             user_id,
             final_slug,
             req.title,
@@ -110,11 +116,22 @@ VALUES($1, $6, current_timestamp, current_timestamp, $5, $2, $3, $4, $7, $8, $9)
             req.date,
             req.song,
             req.mood,
-            req.summary
+            req.summary,
         )
-        .execute(&mut connection)
+        .fetch_optional(&mut connection)
         .await?;
-        return if result.rows_affected() == 1 {
+        return if let Some(row) = result {
+            if let Some(tags) = req.tags {
+                for i in tags {
+                    query!(
+                        "INSERT INTO post_tag(post_id, tag_id) VALUES($1, $2)",
+                        row.id,
+                        i
+                    )
+                    .execute(&mut connection)
+                    .await?;
+                }
+            }
             Ok(response::redirect_response("dashboard"))
         } else {
             let content = NewPost {
@@ -127,6 +144,8 @@ VALUES($1, $6, current_timestamp, current_timestamp, $5, $2, $3, $4, $7, $8, $9)
                 mood: req.mood.as_deref(),
                 song: req.song.as_deref(),
                 summary: req.song.as_deref(),
+                tags: req.tags.unwrap_or(vec![]),
+                all_tags: get_tags(&mut connection).await?,
             };
             render_html(content)
         };
@@ -142,6 +161,8 @@ VALUES($1, $6, current_timestamp, current_timestamp, $5, $2, $3, $4, $7, $8, $9)
         summary: None,
         status: PostStatus::Draft,
         date: &Utc::now().date_naive(),
+        tags: vec![],
+        all_tags: get_tags(&mut connection).await?,
     };
     render_html(content)
 }
@@ -157,7 +178,7 @@ pub async fn edit_post(
         .and_then(parse_into)?;
 
     if request.method() == "POST" {
-        let req: NewPostRequest = post_body(request)?;
+        let req: PostRequest = post_body(request)?;
         let status = req.status.clone();
         query!(
             "UPDATE posts SET title=$1, body=$2, state=$3, post_date = $4, url_slug=$5, song=$6, mood=$7, summary=$8 WHERE id=$9",
@@ -173,12 +194,27 @@ pub async fn edit_post(
         )
         .execute(&mut connection)
         .await?;
+
+        query!("DELETE FROM post_tag WHERE post_id=$1", id)
+            .execute(&mut connection)
+            .await?;
+        if let Some(tags) = req.tags {
+            for i in tags {
+                query!(
+                    "INSERT INTO post_tag(post_id, tag_id) VALUES($1, $2)",
+                    id,
+                    i
+                )
+                .execute(&mut connection)
+                .await?;
+            }
+        }
         if status == PostStatus::Published {
             return render_redirect("posts");
         }
     }
     let post = sqlx::query!(
-        r#"SELECT title, body, url_slug, state as "state: PostStatus", post_date, song, mood, summary  FROM posts WHERE id = $1"#,
+        r#"SELECT title, body, url_slug, state as "state: PostStatus", post_date, song, mood, summary, array_agg(tag_id) AS tags FROM posts LEFT JOIN post_tag ON post_tag.post_id = posts.id WHERE id = $1 GROUP BY posts.id"#,
         id
     )
     .fetch_one(&mut connection)
@@ -196,6 +232,8 @@ pub async fn edit_post(
         mood: post.mood.as_deref(),
         song: post.song.as_deref(),
         summary: post.summary.as_deref(),
+        tags: post.tags.unwrap_or(vec![]),
+        all_tags: get_tags(&mut connection).await?,
     };
     render_html(content)
 }

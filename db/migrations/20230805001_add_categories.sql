@@ -1,0 +1,11 @@
+CREATE TABLE tags (
+	   id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+	   name VARCHAR NOT NULL,
+	   UNIQUE(name)
+);
+
+CREATE TABLE post_tag (
+	   post_id INT NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+	   tag_id INT NOT NULL REFERENCES tags(id) ON DELETE RESTRICT,
+	   PRIMARY KEY(post_id, tag_id)
+);

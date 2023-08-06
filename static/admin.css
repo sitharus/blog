@@ -186,9 +186,12 @@ label > select {
 	background: var(--primary-button-color);
 	color: var(--primary-button-background);
 	appearance: none;
-	padding: 0.5rem;
 	width: 12em;
+}
 
+
+label > select:not([multiple]) {
+	padding: 0.5rem;
 	background-image:
 		linear-gradient(45deg, transparent 50%, var(--primary-button-background) 50%),
 		linear-gradient(135deg, var(--primary-button-background) 50%, transparent 50%);
@@ -228,7 +231,7 @@ button.secondary:hover {
 	color: var(--primary-button-background-hover);
 }
 
-form.action-links button {
+form.action-links button, button.as-link {
 	display: inline-block;
 	border: none;
 	background: transparent;
@@ -241,7 +244,7 @@ form.action-links button {
 	margin: 0 0.4rem;
 }
 
-form.action-links button:hover {
+form.action-links button:hover, button.as-link:hover {
 	color: var(--link-contrast-color);
 }
 

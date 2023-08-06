@@ -2,13 +2,24 @@
 	<article>
 		<header>
 			<h1><a href="{{post|posturl(common)}}">{{ post.title }}</a></h1>
-			<p>
-				Posted on <time datetime="{{post.post_date|format_rfc3339_date}}">{{post.post_date|format_human_date}}</time>
-				{%- match post.author_name -%}
-				{%- when Some(name) %} by {{name}}
+			<div class="byline">
+				<p>
+					Posted on <time datetime="{{post.post_date|format_rfc3339_date}}">{{post.post_date|format_human_date}}</time>
+					{%- match post.author_name -%}
+					{%- when Some(name) %} by {{name}}
+					{%- when None -%}
+					{%- endmatch -%}
+				</p>
+				{%- match post.tags -%}
+				{%- when Some(tags) -%}
+				<ul class="tags">
+					{% for tag in tags -%}
+						<li><a href="{{common.base_url}}tags/{{tag|lower}}/">{{tag}}</a></li>
+					{%- endfor %}
+				</ul>
 				{%- when None -%}
 				{%- endmatch -%}
-			</p>
+			</div>
 		</header>
 		{{ post.body.clone()|format_markdown(common, before_cut.to_owned())|safe }}
 

@@ -50,7 +50,7 @@
 
 @media screen and ((max-resolution: 120dpi) or (-webkit-max-device-pixel-ratio: 1) or (--moz-max-device-pixel-ratio: 1)) {
 	:root {
-		--article-font-weight: 400;
+		--article-font-weight: 450;
 	}
 }
 
@@ -210,6 +210,38 @@ article {
 
 article:last-child{
 	border-bottom: none;
+}
+
+div.byline {
+	margin: 0.3rem 0;
+	display: flex;
+	justify-content: space-between;
+	align-items: centre;
+}
+
+div.byline p {
+	margin: 0;
+}
+
+header ul.tags {
+	display: flex;
+	margin: 0;
+	padding: 0;
+
+}
+
+header ul.tags li {
+	font-size: small;
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	margin-left: 1ex;
+	padding-left: 1.7ex;
+	background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" height="20" fill="rgb(105, 43, 65)" viewBox="0 -960 960 960" width="20"><path d="M795.999-480 618.23-260.001H212.001v-439.998h405.46L795.999-480Zm-67.383 0L593.231-648H264v336h329.231l135.385-168ZM264-480v168-336 168Z"/></svg>');
+	background-repeat: no-repeat;
+	background-position: 0 35%;
+	background-size: 2ex;
+
 }
 
 nav.breadcrumbs + article > header > h1 {

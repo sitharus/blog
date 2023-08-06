@@ -1,6 +1,7 @@
 use chrono::{DateTime, NaiveDate, Utc};
 use std::{collections::HashMap, fmt};
 
+#[derive(PartialEq, Clone)]
 pub struct HydratedPost {
     pub id: i32,
     pub post_date: NaiveDate,
@@ -12,6 +13,7 @@ pub struct HydratedPost {
     pub song: Option<String>,
     pub mood: Option<String>,
     pub summary: Option<String>,
+    pub tags: Option<Vec<String>>,
 }
 
 pub struct HydratedComment {
