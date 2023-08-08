@@ -45,9 +45,9 @@ struct Page404 {}
 
 #[derive(Template)]
 #[template(path = "500.html")]
-struct Page500<'a> {
+struct Page500 {
     common: Common,
-    message: &'a str,
+    message: String,
 }
 
 #[derive(Deserialize)]
@@ -162,7 +162,7 @@ async fn render_500(e: anyhow::Error) -> anyhow::Result<cgi::Response> {
     let common = get_common(&mut connection, types::AdminMenuPages::Dashboard).await?;
     render_html(Page500 {
         common,
-        message: e.to_string().as_ref(),
+        message: format!("{:?}", e),
     })
 }
 

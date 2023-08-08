@@ -214,7 +214,14 @@ pub async fn edit_post(
         }
     }
     let post = sqlx::query!(
-        r#"SELECT title, body, url_slug, state as "state: PostStatus", post_date, song, mood, summary, array_agg(tag_id) AS tags FROM posts LEFT JOIN post_tag ON post_tag.post_id = posts.id WHERE id = $1 GROUP BY posts.id"#,
+        r#"
+SELECT
+    title, body, url_slug, state as "state: PostStatus", post_date, song, mood, summary,
+    array_agg(tag_id) FILTER (WHERE tag_id IS NOT NULL) AS "tags?"
+FROM posts
+LEFT JOIN post_tag ON post_tag.post_id = posts.id
+WHERE id = $1
+GROUP BY posts.id"#,
         id
     )
     .fetch_one(&mut connection)

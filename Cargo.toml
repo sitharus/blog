@@ -11,7 +11,7 @@ members = [
 
 [workspace.dependencies]
 sqlx = { version = "0.6.3", features = ["postgres", "runtime-tokio-rustls", "json", "uuid", "chrono"] }
-anyhow = "1.0.70"
+anyhow = {version = "1.0.70", features=["backtrace"]}
 askama = { version = "0.12.0" }
 cgi = "0.6.0"
 chrono = { version = "0.4.24", features = ["clock", "serde"] }
