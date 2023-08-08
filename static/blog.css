@@ -227,6 +227,11 @@ header ul.tags {
 	display: flex;
 	margin: 0;
 	padding: 0;
+	background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" height="20" fill="rgb(105, 43, 65)" viewBox="0 -960 960 960" width="20"><path d="M795.999-480 618.23-260.001H212.001v-439.998h405.46L795.999-480Zm-67.383 0L593.231-648H264v336h329.231l135.385-168ZM264-480v168-336 168Z"/></svg>');
+	background-repeat: no-repeat;
+	background-position: 0 35%;
+	background-size: 2ex;
+	padding-left: 1.7ex;
 
 }
 
@@ -235,13 +240,24 @@ header ul.tags li {
 	list-style: none;
 	margin: 0;
 	padding: 0;
-	margin-left: 1ex;
-	padding-left: 1.7ex;
-	background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" height="20" fill="rgb(105, 43, 65)" viewBox="0 -960 960 960" width="20"><path d="M795.999-480 618.23-260.001H212.001v-439.998h405.46L795.999-480Zm-67.383 0L593.231-648H264v336h329.231l135.385-168ZM264-480v168-336 168Z"/></svg>');
-	background-repeat: no-repeat;
-	background-position: 0 35%;
-	background-size: 2ex;
+	margin-right: 0.5ex;
+}
+header ul.tags li:after {
+	display: inline;
+	content: '|';
+	color: var(--palette-primary-4);
+	padding-left: 0.5ex;
+}
 
+header ul.tags li:last-child {
+	margin-right: 0;
+}
+
+header ul.tags li:last-child::after {
+	display: none;
+}
+header ul.tags a {
+	text-underline-position: unset;
 }
 
 nav.breadcrumbs + article > header > h1 {
@@ -476,6 +492,16 @@ summary {
 
 	nav.sidebar .homenav {
 		display: none;
+	}
+}
+
+@media(max-width: 750px) {
+	header div.byline {
+		flex-direction: column;
+	}
+
+	header ul.tags {
+		background-position: center left;
 	}
 }
 
