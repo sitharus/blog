@@ -2,7 +2,7 @@
 
 {% block content %}
 	<h1> Settings </h1>
-	<form action="" method="POST">
+	<form action="" method="POST" enctype="multipart/form-data">
 		<label>
 			Blog name
 			<input type="text" value="{{settings.blog_name}}" name="blog_name">
@@ -37,6 +37,24 @@
 		<label>
 			Media base URL
 			<input type="text" value="{{settings.media_base_url}}" name="media_base_url">
+		</label>
+
+
+		<label>
+			ActivityPub Avatar
+			<input type="file" name="fedi_avatar" />
+			{% match settings.fedi_avatar -%}
+			{% when Some(a) -%}<img width="64" src="{{settings.media_base_url}}{{a}}">
+			{% when None -%}
+			{%- endmatch %}
+		</label>
+		<label>
+			ActivityPub Header
+			<input type="file" name="fedi_header" />
+			{% match settings.fedi_header -%}
+			{% when Some(a) -%}<img height="200" src="{{settings.media_base_url}}{{a}}">
+			{% when None -%}
+			{%- endmatch %}
 		</label>
 
 

@@ -18,6 +18,8 @@ pub enum SettingNames {
     FediPublicKeyPem,
     FediPrivateKeyPem,
     Timezone,
+    FediAvatar,
+    FediHeader,
 }
 const BLOG_NAME: &str = "blog_name";
 const BASE_URL: &str = "base_url";
@@ -28,22 +30,27 @@ const MEDIA_BASE_URL: &str = "media_base_url";
 const CANONICAL_HOSTNAME: &str = "canonical_hostname";
 const FEDI_PUBLIC_KEY_PEM: &str = "fedi_public_key_pem";
 const FEDI_PRIVATE_KEY_PEM: &str = "fedi_private_key_pem";
+const FEDI_AVATAR: &str = "fedi_avatar";
+const FEDI_HEADER: &str = "fedi_header";
 const TIMEZONE: &str = "timezone";
 
 impl Display for SettingNames {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            SettingNames::BlogName => write!(f, "{}", BLOG_NAME),
-            SettingNames::BaseUrl => write!(f, "{}", BASE_URL),
-            SettingNames::StaticBaseUrl => write!(f, "{}", STATIC_BASE_URL),
-            SettingNames::CommentCGIUrl => write!(f, "{}", COMMENT_CGI_URL),
-            SettingNames::MediaPath => write!(f, "{}", MEDIA_PATH),
-            SettingNames::MediaBaseUrl => write!(f, "{}", MEDIA_BASE_URL),
-            SettingNames::CanonicalHostname => write!(f, "{}", CANONICAL_HOSTNAME),
-            SettingNames::FediPublicKeyPem => write!(f, "{}", FEDI_PUBLIC_KEY_PEM),
-            SettingNames::FediPrivateKeyPem => write!(f, "{}", FEDI_PRIVATE_KEY_PEM),
-            SettingNames::Timezone => write!(f, "{}", TIMEZONE),
-        }
+        let name = match self {
+            SettingNames::BlogName => BLOG_NAME,
+            SettingNames::BaseUrl => BASE_URL,
+            SettingNames::StaticBaseUrl => STATIC_BASE_URL,
+            SettingNames::CommentCGIUrl => COMMENT_CGI_URL,
+            SettingNames::MediaPath => MEDIA_PATH,
+            SettingNames::MediaBaseUrl => MEDIA_BASE_URL,
+            SettingNames::CanonicalHostname => CANONICAL_HOSTNAME,
+            SettingNames::FediPublicKeyPem => FEDI_PUBLIC_KEY_PEM,
+            SettingNames::FediPrivateKeyPem => FEDI_PRIVATE_KEY_PEM,
+            SettingNames::Timezone => TIMEZONE,
+            SettingNames::FediAvatar => FEDI_AVATAR,
+            SettingNames::FediHeader => FEDI_HEADER,
+        };
+        write!(f, "{}", name)
     }
 }
 
@@ -65,6 +72,8 @@ impl FromStr for SettingNames {
             FEDI_PUBLIC_KEY_PEM => Ok(SettingNames::FediPublicKeyPem),
             FEDI_PRIVATE_KEY_PEM => Ok(SettingNames::FediPrivateKeyPem),
             TIMEZONE => Ok(SettingNames::Timezone),
+            FEDI_AVATAR => Ok(SettingNames::FediAvatar),
+            FEDI_HEADER => Ok(SettingNames::FediHeader),
             _ => Err(ParseSettingNamesError),
         }
     }
@@ -81,6 +90,8 @@ pub struct Settings {
     pub fedi_public_key_pem: String,
     pub fedi_private_key_pem: String,
     pub actor_name: String,
+    pub fedi_header: Option<String>,
+    pub fedi_avatar: Option<String>,
     pub timezone: chrono_tz::Tz,
 }
 
@@ -158,6 +169,8 @@ pub async fn get_settings_struct(connection: &mut PgConnection) -> anyhow::Resul
             .get(&SettingNames::Timezone)
             .and_then(|x| x.parse::<chrono_tz::Tz>().ok())
             .unwrap_or(chrono_tz::UTC),
+        fedi_avatar: all_settings.get(&SettingNames::FediAvatar).cloned(),
+        fedi_header: all_settings.get(&SettingNames::FediHeader).cloned(),
         actor_name: "blog".into(),
     })
 }

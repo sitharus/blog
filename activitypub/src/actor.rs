@@ -5,6 +5,7 @@ use serde::Serialize;
 use serde_json::Value;
 use shared::settings::Settings;
 use sqlx::{query, query_as, PgConnection};
+use url::Url;
 
 use crate::http_signatures::sign_and_call;
 
@@ -23,6 +24,20 @@ pub struct ActorRecord {
 }
 
 #[derive(Serialize, Debug)]
+pub enum MediaRefType {
+    Image,
+}
+
+#[derive(Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct MediaRef {
+    url: String,
+    #[serde(rename = "type")]
+    item_type: MediaRefType,
+    media_type: String,
+}
+
+#[derive(Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Actor {
     #[serde(rename = "@context")]
@@ -38,6 +53,10 @@ pub struct Actor {
     public_key: PublicKey,
     name: String,
     url: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    icon: Option<MediaRef>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    image: Option<MediaRef>,
 }
 
 #[derive(Serialize, Debug)]
@@ -73,8 +92,35 @@ impl Actor {
                 public_key_pem: settings.fedi_public_key_pem,
             },
             name: settings.blog_name,
-            url: settings.base_url,
+            url: settings.base_url.clone(),
+            icon: settings
+                .fedi_avatar
+                .map(|a| as_media_ref(&a, &settings.base_url, &settings.media_base_url)),
+            image: settings
+                .fedi_header
+                .map(|a| as_media_ref(&a, &settings.base_url, &settings.media_base_url)),
         }
+    }
+}
+
+fn as_media_ref(media: &String, base_url: &String, media_base_url: &String) -> MediaRef {
+    let url = Url::parse(base_url)
+        .unwrap()
+        .join(media_base_url)
+        .unwrap()
+        .join(media)
+        .unwrap()
+        .to_string();
+
+    MediaRef {
+        url,
+        media_type: if media.ends_with("png") {
+            "image/png"
+        } else {
+            "image/jpg"
+        }
+        .into(),
+        item_type: MediaRefType::Image,
     }
 }
 
