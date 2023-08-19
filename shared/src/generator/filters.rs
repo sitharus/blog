@@ -7,7 +7,7 @@ use chrono::{offset::Utc, DateTime, Datelike, Month, NaiveDate};
 use chrono_tz::Tz;
 use num_traits::FromPrimitive;
 use ordinal::Ordinal;
-use pulldown_cmark::{Event, Tag};
+use pulldown_cmark::{Event, Options, Parser, Tag};
 
 pub fn posturl(post: &HydratedPost, common: &CommonData) -> ::askama::Result<String> {
     blog_post_url(
@@ -88,7 +88,11 @@ where
 {
     let mut current_image: String = String::new();
     let mut in_image = false;
-    let parser = pulldown_cmark::Parser::new(content.as_ref()).map(|event| match &event {
+    let mut options = Options::empty();
+    options.insert(Options::ENABLE_STRIKETHROUGH);
+    options.insert(Options::ENABLE_SMART_PUNCTUATION);
+    options.insert(Options::ENABLE_FOOTNOTES);
+    let parser = Parser::new_ext(content.as_ref(), options).map(|event| match &event {
         /*
         An image is represented as three events: Start(Tag::Image) Text(alt text) End(Tag::Image)
         So I split the alt attribute between start and end. Fortunately I only need to do
