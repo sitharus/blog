@@ -62,11 +62,6 @@ pub async fn publish_posts(
 
     for post in to_post {
         let post_url = blog_post_url(post.url_slug, post.post_date, settings.base_url.clone())?;
-        let post_date = post
-            .post_date
-            .and_hms_opt(0, 0, 0)
-            .ok_or(anyhow!("Failed to make time"))?
-            .and_utc();
 
         let summary = post.summary.unwrap_or("New post!".into());
         let content = format!(
@@ -76,7 +71,7 @@ pub async fn publish_posts(
         let note = Activity::note(
             content,
             post_url.clone(),
-            post_date,
+            Utc::now(),
             vec![activities::PUBLIC_TIMELINE.into()],
             vec![],
         );
