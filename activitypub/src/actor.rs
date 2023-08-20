@@ -117,7 +117,7 @@ fn as_media_ref(media: &String, base_url: &String, media_base_url: &String) -> M
         media_type: if media.ends_with("png") {
             "image/png"
         } else {
-            "image/jpg"
+            "image/jpeg"
         }
         .into(),
         item_type: MediaRefType::Image,
