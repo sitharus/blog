@@ -57,6 +57,7 @@ pub struct Actor {
     icon: Option<MediaRef>,
     #[serde(skip_serializing_if = "Option::is_none")]
     image: Option<MediaRef>,
+    published: DateTime<Utc>,
 }
 
 #[derive(Serialize, Debug)]
@@ -99,6 +100,7 @@ impl Actor {
             image: settings
                 .fedi_header
                 .map(|a| as_media_ref(&a, &settings.base_url, &settings.media_base_url)),
+            published: settings.profile_last_updated,
         }
     }
 }

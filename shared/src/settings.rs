@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use sqlx::{query, PgConnection};
 
 use std::{
@@ -20,6 +21,7 @@ pub enum SettingNames {
     Timezone,
     FediAvatar,
     FediHeader,
+    ProfileLastUpdated,
 }
 const BLOG_NAME: &str = "blog_name";
 const BASE_URL: &str = "base_url";
@@ -33,6 +35,7 @@ const FEDI_PRIVATE_KEY_PEM: &str = "fedi_private_key_pem";
 const FEDI_AVATAR: &str = "fedi_avatar";
 const FEDI_HEADER: &str = "fedi_header";
 const TIMEZONE: &str = "timezone";
+const PROFILE_LAST_UPDATED: &str = "profile_last_updated";
 
 impl Display for SettingNames {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -49,6 +52,7 @@ impl Display for SettingNames {
             SettingNames::Timezone => TIMEZONE,
             SettingNames::FediAvatar => FEDI_AVATAR,
             SettingNames::FediHeader => FEDI_HEADER,
+            SettingNames::ProfileLastUpdated => PROFILE_LAST_UPDATED,
         };
         write!(f, "{}", name)
     }
@@ -74,6 +78,7 @@ impl FromStr for SettingNames {
             TIMEZONE => Ok(SettingNames::Timezone),
             FEDI_AVATAR => Ok(SettingNames::FediAvatar),
             FEDI_HEADER => Ok(SettingNames::FediHeader),
+            PROFILE_LAST_UPDATED => Ok(SettingNames::ProfileLastUpdated),
             _ => Err(ParseSettingNamesError),
         }
     }
@@ -93,6 +98,7 @@ pub struct Settings {
     pub fedi_header: Option<String>,
     pub fedi_avatar: Option<String>,
     pub timezone: chrono_tz::Tz,
+    pub profile_last_updated: chrono::DateTime<Utc>,
 }
 
 impl Settings {
@@ -172,5 +178,13 @@ pub async fn get_settings_struct(connection: &mut PgConnection) -> anyhow::Resul
         fedi_avatar: all_settings.get(&SettingNames::FediAvatar).cloned(),
         fedi_header: all_settings.get(&SettingNames::FediHeader).cloned(),
         actor_name: "blog".into(),
+        profile_last_updated: all_settings
+            .get(&SettingNames::ProfileLastUpdated)
+            .and_then(|a| {
+                DateTime::parse_from_rfc3339(a)
+                    .map(|d| d.with_timezone(&Utc))
+                    .ok()
+            })
+            .unwrap_or(Utc::now()),
     })
 }

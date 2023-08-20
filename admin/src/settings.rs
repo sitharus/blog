@@ -8,12 +8,13 @@ use anyhow::anyhow;
 use askama::Template;
 use bytes::Bytes;
 use cgi;
+use chrono::Utc;
 use futures_util::stream::once;
 use multer::Multipart;
 use shared::{
     database,
     errors::BlogError,
-    settings::{get_settings_struct, Settings as SettingsStruct},
+    settings::{get_settings_struct, SettingNames, Settings as SettingsStruct},
 };
 use sqlx::query;
 use std::convert::Infallible;
@@ -107,6 +108,14 @@ pub async fn render(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
                 }
             }
         }
+
+        query!(
+            "INSERT INTO blog_settings VALUES($1, $2) ON CONFLICT (setting_name) DO UPDATE SET value = EXCLUDED.value",
+            SettingNames::ProfileLastUpdated.to_string(),
+            Utc::now().to_rfc3339()
+        )
+        .execute(&mut connection)
+        .await?;
     }
 
     let common = get_common(&mut connection, AdminMenuPages::Settings).await?;
