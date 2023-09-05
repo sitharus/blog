@@ -22,3 +22,4 @@ serde_json = { workspace = true }
 ammonia = { workspace = true }
 tokio = { workspace = true }
 thiserror = { workspace = true }
+latex2mathml = { workspace = true }

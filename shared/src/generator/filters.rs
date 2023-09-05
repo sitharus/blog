@@ -5,6 +5,7 @@ use crate::utils::blog_post_url;
 use super::{CommonData, HydratedPost};
 use chrono::{offset::Utc, DateTime, Datelike, Month, NaiveDate};
 use chrono_tz::Tz;
+use latex2mathml::{latex_to_mathml, DisplayStyle};
 use num_traits::FromPrimitive;
 use ordinal::Ordinal;
 use pulldown_cmark::{Event, Options, Parser, Tag};
@@ -135,6 +136,11 @@ where
             }
             _ => event,
         },
+        Event::Code(code) if code.starts_with("$$") && code.ends_with("$$") => {
+            let mathml = latex_to_mathml(code[2..(code.len() - 2)].into(), DisplayStyle::Inline)
+                .unwrap_or("Bad Math!".into());
+            Event::Html(mathml.into())
+        }
         Event::Text(txt) if in_image => {
             current_image.push_str(&format!(r#" alt="{}" "#, txt));
             Event::Text("".into())

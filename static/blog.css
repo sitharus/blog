@@ -517,3 +517,24 @@ img.left {
 	margin-top: 0.5rem;
 	border: 1px solid grey;
 }
+
+div.footnote-definition {
+	display: flex;
+}
+
+
+div.footnote-definition > p:first-of-type {
+	margin-top: 0;
+}
+
+sup.footnote-definition-label {
+	display: block;
+	margin-right: 0.3rem;
+	width: 0.5rem;
+}
+
+math {
+	font-family: "Montserrat", "Helvetica", sans-serif;
+	font-weight: var(--article-font-weight);
+	font-variant-numeric: proportional-nums;
+}
