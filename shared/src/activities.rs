@@ -51,6 +51,7 @@ pub enum Activity {
     Undo(Undo),
     Delete(Delete),
     Like(Like),
+    Update(Update),
 }
 
 impl Activity {
@@ -88,7 +89,7 @@ pub struct Create {
 }
 
 impl Create {
-    fn new(actor: String, object: Activity, to: Vec<String>, cc: Vec<String>) -> Create {
+    pub fn new(actor: String, object: Activity, to: Vec<String>, cc: Vec<String>) -> Create {
         Self {
             context: Context::String("https://www.w3.org/ns/activitystreams".into()),
             actor,
@@ -186,4 +187,16 @@ pub struct Undo {
 pub struct Like {
     pub actor: String,
     pub object: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Update {
+    pub actor: String,
+    pub object: String,
+}
+
+impl Update {
+    pub fn new(actor: String, object: String) -> Update {
+        Update { actor, object }
+    }
 }

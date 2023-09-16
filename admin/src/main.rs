@@ -135,7 +135,10 @@ async fn process_inner(
         match action.as_str() {
             "dashboard" => dashboard::render(request).await,
             "new-post" => post::new_post(request).await,
-            "regenerate" => generator::regenerate_blog(request).await,
+            "regenerate" => {
+                generator::regenerate_blog(request).await?;
+                activitypub::publish_posts(request, query).await
+            }
             "account" => account::render(request).await,
             "settings" => settings::render(request).await,
             "links" => links::render(request).await,
@@ -148,6 +151,7 @@ async fn process_inner(
             "new_page" => page::new_page(request).await,
             "edit_page" => page::edit_post(request, query).await,
             "media" => manage_media(request).await,
+            "profile_update" => activitypub::publish_profile_updates().await,
             "publish_posts" => activitypub::publish_posts(request, query).await,
             "send_post" => activitypub::send(request, query).await,
             "activitypub_feed" => activitypub::feed().await,

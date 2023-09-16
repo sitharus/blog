@@ -5,7 +5,7 @@ use askama::Template;
 use chrono::{DateTime, Utc};
 use http::Method;
 use shared::{
-    activities::{self, Activity},
+    activities::{self, Activity, Update},
     database::connect_db,
     settings::get_settings_struct,
     utils::{blog_post_url, post_body, render_html, render_redirect},
@@ -95,6 +95,46 @@ pub async fn publish_posts(
                 query!("INSERT INTO activitypub_outbox_target(activitypub_outbox_id, target) VALUES ($1, $2)", inserted.id, f).execute(&mut connection).await?;
             }
         }
+    }
+
+    render_redirect("dashboard")
+}
+
+pub async fn publish_profile_updates() -> anyhow::Result<cgi::Response> {
+    let mut connection = connect_db().await?;
+    let settings = get_settings_struct(&mut connection).await?;
+    let follower_rows =
+        query!("SELECT actor FROM activitypub_known_actors WHERE is_following = true")
+            .fetch_all(&mut connection)
+            .await?;
+    let followers: Vec<String> = follower_rows
+        .into_iter()
+        .map(|r| r.actor.unwrap())
+        .collect();
+    let activity_url = format!(
+        "{}/updates/{}",
+        settings.activitypub_base(),
+        Uuid::new_v4().hyphenated()
+    );
+    let update = Activity::Update(Update::new(
+        settings.activitypub_actor_uri(),
+        settings.activitypub_actor_uri(),
+    ));
+    let inserted = query!(
+        "INSERT INTO activitypub_outbox(activity_id, activity) VALUES($1, $2) RETURNING id",
+        activity_url,
+        Json(update) as _,
+    )
+    .fetch_one(&mut connection)
+    .await?;
+    for f in followers {
+        query!(
+            "INSERT INTO activitypub_outbox_target(activitypub_outbox_id, target) VALUES ($1, $2)",
+            inserted.id,
+            f
+        )
+        .execute(&mut connection)
+        .await?;
     }
 
     render_redirect("dashboard")
