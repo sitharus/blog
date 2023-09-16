@@ -7,6 +7,7 @@ use cgi;
 use chrono::{DateTime, Utc};
 use shared::{database, utils::render_html};
 use sqlx::query_as;
+use std::fmt;
 
 use super::session;
 use crate::filters;
@@ -21,7 +22,26 @@ struct Dashboard {
 
 struct Follower {
     actor: String,
+    username: Option<String>,
+    server: Option<String>,
     first_seen: DateTime<Utc>,
+}
+
+impl fmt::Display for Follower {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if let Some(server) = &self.server {
+            if let Some(username) = &self.username {
+                write!(f, "{}@{}", username, server)
+            } else {
+                match self.actor.split('/').last() {
+                    Some(name) => write!(f, "{}@{}", name, server),
+                    _ => write!(f, "{}", self.actor),
+                }
+            }
+        } else {
+            write!(f, "{}", self.actor)
+        }
+    }
 }
 
 struct DashboardPost {
@@ -53,7 +73,7 @@ FETCH FIRST 10 ROWS ONLY"#
     let followers = query_as!(
         Follower,
         r#"
-SELECT actor AS "actor!", first_seen as "first_seen!"
+SELECT actor AS "actor!", username, server, first_seen as "first_seen!"
 FROM activitypub_known_actors
 WHERE is_following=true AND actor IS NOT NULL
 ORDER BY first_seen DESC
