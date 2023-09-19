@@ -11,7 +11,7 @@ use serde_querystring::{from_bytes, ParseMode};
 use session::SessionError;
 use shared::{
     database,
-    utils::{parse_query_string, render_html, render_html_status},
+    utils::{parse_query_string, render_html, render_html_status, render_redirect},
 };
 use tokio::runtime::Runtime;
 
@@ -137,7 +137,8 @@ async fn process_inner(
             "new-post" => post::new_post(request).await,
             "regenerate" => {
                 generator::regenerate_blog(request).await?;
-                activitypub::publish_posts(request, query).await
+                activitypub::publish_posts(true).await?;
+                render_redirect("dashboard")
             }
             "account" => account::render(request).await,
             "settings" => settings::render(request).await,
@@ -152,7 +153,7 @@ async fn process_inner(
             "edit_page" => page::edit_post(request, query).await,
             "media" => manage_media(request).await,
             "profile_update" => activitypub::publish_profile_updates().await,
-            "publish_posts" => activitypub::publish_posts(request, query).await,
+            "publish_posts" => activitypub::publish_posts_from_request(query).await,
             "send_post" => activitypub::send(request, query).await,
             "activitypub_feed" => activitypub::feed().await,
             "tags" => tags::render(request).await,

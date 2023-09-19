@@ -1,8 +1,8 @@
-use actor::{refresh_actor, Actor};
+use actor::refresh_actor;
 use anyhow::bail;
 use cgi::http::{header, response, Uri};
 use shared::{
-    activities::OrderedCollection,
+    activities::{Activity, Actor, OrderedCollection},
     database::connect_db,
     session::has_valid_session,
     settings::{get_settings_struct, Settings},
@@ -106,7 +106,7 @@ async fn process(request: cgi::Request) -> anyhow::Result<cgi::Response> {
 
 fn actor(request: &cgi::Request, settings: Settings) -> anyhow::Result<cgi::Response> {
     if request.method() == "GET" {
-        let actor = Actor::new(settings);
+        let actor = Activity::Person(Actor::new(settings));
         jsonld_response(&actor)
     } else {
         Ok(cgi::text_response(405, "Bad request - only GET supported"))

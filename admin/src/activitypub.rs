@@ -5,7 +5,7 @@ use askama::Template;
 use chrono::{DateTime, Utc};
 use http::Method;
 use shared::{
-    activities::{self, Activity, Update},
+    activities::{self, Activity, Actor, Update},
     database::connect_db,
     settings::get_settings_struct,
     utils::{blog_post_url, post_body, render_html, render_redirect},
@@ -35,9 +35,7 @@ struct FeedPage {
     messages: Vec<FeedMessage>,
     common: Common,
 }
-
-pub async fn publish_posts(
-    _request: &cgi::Request,
+pub async fn publish_posts_from_request(
     query: HashMap<String, String>,
 ) -> anyhow::Result<cgi::Response> {
     let push = match query.get("push").map(|f| f.as_str()) {
@@ -45,6 +43,11 @@ pub async fn publish_posts(
         Some(_) => false,
         None => false,
     };
+    publish_posts(push).await?;
+    render_redirect("dashboard")
+}
+
+pub async fn publish_posts(push: bool) -> anyhow::Result<()> {
     let mut connection = connect_db().await?;
     let settings = get_settings_struct(&mut connection).await?;
     let follower_rows =
@@ -97,7 +100,7 @@ pub async fn publish_posts(
         }
     }
 
-    render_redirect("dashboard")
+    Ok(())
 }
 
 pub async fn publish_profile_updates() -> anyhow::Result<cgi::Response> {
@@ -119,6 +122,9 @@ pub async fn publish_profile_updates() -> anyhow::Result<cgi::Response> {
     let update = Activity::Update(Update::new(
         settings.activitypub_actor_uri(),
         settings.activitypub_actor_uri(),
+        Activity::Person(Actor::new(settings)),
+        vec![activities::PUBLIC_TIMELINE.into()],
+        vec![],
     ));
     let inserted = query!(
         "INSERT INTO activitypub_outbox(activity_id, activity) VALUES($1, $2) RETURNING id",

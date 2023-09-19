@@ -1,11 +1,9 @@
 use anyhow::anyhow;
 use cgi::http::{header, uri};
 use chrono::{DateTime, Utc};
-use serde::Serialize;
 use serde_json::Value;
 use shared::settings::Settings;
 use sqlx::{query, query_as, PgConnection};
-use url::Url;
 
 use crate::http_signatures::sign_and_call;
 
@@ -21,109 +19,6 @@ pub struct ActorRecord {
     pub username: Option<String>,
     pub server: Option<String>,
     pub raw_actor_data: Option<Value>,
-}
-
-#[derive(Serialize, Debug)]
-pub enum MediaRefType {
-    Image,
-}
-
-#[derive(Serialize, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct MediaRef {
-    url: String,
-    #[serde(rename = "type")]
-    item_type: MediaRefType,
-    media_type: String,
-}
-
-#[derive(Serialize, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct Actor {
-    #[serde(rename = "@context")]
-    context: Vec<String>,
-    id: String,
-    #[serde(rename = "type")]
-    actor_type: String,
-    preferred_username: String,
-    inbox: String,
-    outbox: String,
-    followers: String,
-    following: String,
-    public_key: PublicKey,
-    name: String,
-    url: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    icon: Option<MediaRef>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    image: Option<MediaRef>,
-    published: DateTime<Utc>,
-}
-
-#[derive(Serialize, Debug)]
-#[serde(rename_all = "camelCase")]
-struct PublicKey {
-    id: String,
-    owner: String,
-    public_key_pem: String,
-}
-
-impl Actor {
-    pub fn new(settings: Settings) -> Actor {
-        let fedi_base = settings.activitypub_base();
-        let actor_name = settings.actor_name.clone();
-        let id = settings.activitypub_actor_uri();
-        let owner_id = settings.activitypub_actor_uri();
-        let key_id = settings.activitypub_key_id();
-        Actor {
-            context: vec![
-                "https://www.w3.org/ns/activitystreams".into(),
-                "https://w3id.org/security/v1".into(),
-            ],
-            id,
-            actor_type: "Person".into(),
-            preferred_username: actor_name,
-            inbox: format!("{}inbox", fedi_base),
-            outbox: format!("{}outbox", fedi_base),
-            followers: format!("{}followers", fedi_base),
-            following: format!("{}following", fedi_base),
-            public_key: PublicKey {
-                id: key_id,
-                owner: owner_id,
-                public_key_pem: settings.fedi_public_key_pem,
-            },
-            name: settings.blog_name,
-            url: settings.base_url.clone(),
-            icon: settings
-                .fedi_avatar
-                .map(|a| as_media_ref(&a, &settings.base_url, &settings.media_base_url)),
-            image: settings
-                .fedi_header
-                .map(|a| as_media_ref(&a, &settings.base_url, &settings.media_base_url)),
-            published: settings.profile_last_updated,
-        }
-    }
-}
-
-fn as_media_ref(media: &String, base_url: &String, media_base_url: &String) -> MediaRef {
-    let url = Url::parse(base_url)
-        .unwrap()
-        .join(media_base_url)
-        .unwrap()
-        .join(media)
-        .unwrap()
-        .to_string();
-
-    MediaRef {
-        url,
-        media_type: if media.ends_with("png") {
-            "image/png"
-        } else {
-            "image/jpeg"
-        }
-        .into(),
-        item_type: MediaRefType::Image,
-    }
 }
 
 pub async fn get_actor(
