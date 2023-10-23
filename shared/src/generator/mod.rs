@@ -9,6 +9,7 @@ use cgi::text_response;
 use chrono::{Datelike, Utc};
 use sqlx::{postgres::PgConnection, query, query_as, types::Json};
 use std::collections::HashMap;
+pub mod activitypub;
 pub mod filters;
 
 #[derive(Template)]

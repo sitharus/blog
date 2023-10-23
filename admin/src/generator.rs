@@ -34,6 +34,8 @@ struct IndexPage<'a> {
     title: &'a str,
     common: &'a CommonData,
     posts: Vec<&'a HydratedPost>,
+    page: i32,
+    total_pages: i32,
 }
 
 #[derive(Template)]
@@ -189,6 +191,7 @@ async fn generate_paged<'a>(
     common: &CommonData,
     output_path: &String,
 ) -> anyhow::Result<()> {
+    let total_pages = (posts.len() as f64 / 10.0).ceil() as i32;
     for (pos, chunk) in posts.chunks(10).into_iter().enumerate() {
         let path = if pos == 0 {
             String::from("index.html")
@@ -201,6 +204,8 @@ async fn generate_paged<'a>(
             title: &common.blog_name,
             posts: chunk.collect(),
             common: &common,
+            page: pos as i32 + 1,
+            total_pages,
         };
 
         let rendered = page.render()?;

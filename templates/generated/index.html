@@ -14,4 +14,14 @@
 		{% call macros::format_post(post, true) %}
 	{% endfor %}
 	</main>
+
+	<footer>
+		{% if page > 1 -%}
+			<a href="{% if page - 1 == 1 %}index.html{% else %}index{{page-1}}.html{%endif%}"><< Prev Page</a>
+		{% endif -%}
+		Page {{page}} of {{total_pages}}
+		{% if page < total_pages -%}
+			<a href="index{{page+1}}.html"> Next >></a>
+		{% endif -%}
+	</footer>
 {% endblock %}
