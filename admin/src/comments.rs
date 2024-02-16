@@ -1,14 +1,13 @@
 use crate::{
     common::{get_common, Common},
     filters,
-    types::AdminMenuPages,
+    types::{AdminMenuPages, PageGlobals},
 };
 
 use askama::Template;
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use shared::{
-    database,
     types::CommentStatus,
     utils::{post_body, render_html, render_redirect},
 };
@@ -36,8 +35,7 @@ struct CommentModAction {
     action: String,
 }
 
-pub async fn comment_list() -> anyhow::Result<cgi::Response> {
-    let mut db = database::connect_db().await?;
+pub async fn comment_list(globals: PageGlobals) -> anyhow::Result<cgi::Response> {
     let items = query_as!(
         CommentListItem,
         "
@@ -46,20 +44,23 @@ FROM comments c
 INNER JOIN posts p
 ON c.post_id = p.id
 WHERE c.status = 'pending'
-"
+AND p.site_id=$1
+", globals.site_id
     )
-    .fetch_all(&mut db)
+    .fetch_all(&globals.connection_pool)
     .await?;
 
-    let common = get_common(&mut db, AdminMenuPages::Comments).await?;
+    let common = get_common(&globals, AdminMenuPages::Comments).await?;
     render_html(Comments {
         common,
         comments: items,
     })
 }
 
-pub async fn moderate_comment(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
-    let mut db = database::connect_db().await?;
+pub async fn moderate_comment(
+    request: &cgi::Request,
+    globals: PageGlobals,
+) -> anyhow::Result<cgi::Response> {
     let action: CommentModAction = post_body(request)?;
     let status = if action.action == "approve" {
         CommentStatus::Approved
@@ -71,7 +72,7 @@ pub async fn moderate_comment(request: &cgi::Request) -> anyhow::Result<cgi::Res
         status as CommentStatus,
         action.comment_id
     )
-    .execute(&mut db)
+    .execute(&globals.connection_pool)
     .await?;
     render_redirect("comments")
 }

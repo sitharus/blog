@@ -7,7 +7,8 @@ use anyhow::anyhow;
 use askama::Template;
 use cgi::text_response;
 use chrono::{Datelike, Utc};
-use sqlx::{postgres::PgConnection, query, query_as, types::Json};
+use sqlx::PgPool;
+use sqlx::{query, query_as, types::Json};
 use std::collections::HashMap;
 pub mod activitypub;
 pub mod filters;
@@ -22,7 +23,7 @@ struct PostPage<'a> {
 }
 
 pub async fn external_preview(id: i32) -> anyhow::Result<cgi::Response> {
-    let mut connection = connect_db().await?;
+    let connection = connect_db().await?;
     let maybe_post = query_as!(
         HydratedPost,
         r#"
@@ -35,6 +36,7 @@ SELECT
     song,
     mood,
     summary,
+	site_id,
     users.display_name AS author_name,
     (SELECT COUNT(*) FROM comments WHERE comments.post_id = posts.id) AS comment_count,
     (SELECT array_agg(t.name) FROM tags t INNER JOIN post_tag pt ON pt.tag_id = t.id WHERE pt.post_id = posts.id) AS tags
@@ -46,12 +48,12 @@ AND posts.id=$1
 "#,
         id
     )
-    .fetch_optional(&mut connection)
+    .fetch_optional(&connection)
     .await?;
 
     match maybe_post {
         Some(post) => {
-            let common = get_common(&mut connection).await?;
+            let common = get_common(&connection, post.site_id).await?;
             let post_page = PostPage {
                 title: &post.title,
                 post: &post,
@@ -65,36 +67,47 @@ AND posts.id=$1
     }
 }
 
-pub async fn get_common(connection: &mut PgConnection) -> anyhow::Result<CommonData> {
+pub async fn get_common(connection: &PgPool, site_id: i32) -> anyhow::Result<CommonData> {
     // TODO: Figure out how to use a &mut connection argument.
     let settings: HashMap<String, String>;
-    let raw_settings = query!("SELECT setting_name, value FROM blog_settings")
-        .fetch_all(&mut *connection)
-        .await?;
+    let raw_settings = query!(
+        "SELECT setting_name, value FROM blog_settings WHERE site_id=$1",
+        site_id
+    )
+    .fetch_all(connection)
+    .await?;
     settings = HashMap::from_iter(raw_settings.into_iter().map(|r| (r.setting_name, r.value)));
 
     let links = query_as!(
         Link,
-        "SELECT title, destination FROM external_links ORDER BY position"
+        "SELECT title, destination FROM external_links WHERE site_id=$1 ORDER BY position",
+        site_id
     )
-    .fetch_all(&mut *connection)
+    .fetch_all(connection)
     .await?;
 
-    let page_links = query_as!(PageLink, "SELECT title, url_slug FROM pages ORDER BY title")
-        .fetch_all(&mut *connection)
-        .await?;
+    let page_links = query_as!(
+        PageLink,
+        "SELECT title, url_slug FROM pages WHERE site_id=$1 ORDER BY title",
+        site_id
+    )
+    .fetch_all(connection)
+    .await?;
 
-    let earliest_post = query!("SELECT post_date FROM posts ORDER BY post_date ASC LIMIT 1")
-        .fetch_one(&mut *connection)
-        .await?;
+    let earliest_post = query!(
+        "SELECT post_date FROM posts WHERE site_id=$1 ORDER BY post_date ASC LIMIT 1",
+        site_id
+    )
+    .fetch_one(connection)
+    .await?;
     let earliest_year = earliest_post.post_date.year();
     let current_year = Utc::now().year();
     let mut years: Vec<i32> = (earliest_year..=current_year).collect();
     years.reverse();
 
     let media_rows =
-        query!(r#"SELECT id, file, metadata AS "metadata: Json<ImageMetadata>"  FROM media"#)
-            .fetch_all(&mut *connection)
+        query!(r#"SELECT id, file, metadata AS "metadata: Json<ImageMetadata>"  FROM media WHERE site_id=$1"#, site_id)
+            .fetch_all(connection)
             .await?;
 
     let media = HashMap::from_iter(media_rows.into_iter().map(|m| -> (i32, Media) {

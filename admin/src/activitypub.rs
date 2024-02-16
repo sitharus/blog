@@ -6,15 +6,17 @@ use chrono::{DateTime, Utc};
 use http::Method;
 use shared::{
     activities::{self, Activity, Actor, Update},
-    database::connect_db,
     settings::get_settings_struct,
     utils::{blog_post_url, post_body, render_html, render_redirect},
 };
 use sqlx::{query, query_as, types::Json};
 use uuid::Uuid;
 
-use crate::common::{get_common, Common};
 use crate::filters;
+use crate::{
+    common::{get_common, Common},
+    types::PageGlobals,
+};
 
 #[derive(Template)]
 #[template(path = "activitypub_send_post.html")]
@@ -35,33 +37,31 @@ struct FeedPage {
     messages: Vec<FeedMessage>,
     common: Common,
 }
-pub async fn publish_posts_from_request(
-    query: HashMap<String, String>,
-) -> anyhow::Result<cgi::Response> {
-    let push = match query.get("push").map(|f| f.as_str()) {
+pub async fn publish_posts_from_request(globals: PageGlobals) -> anyhow::Result<cgi::Response> {
+    let push = match globals.query.get("push").map(|f| f.as_str()) {
         Some("true") => true,
         Some(_) => false,
         None => false,
     };
-    publish_posts(push).await?;
+    publish_posts(globals, push).await?;
     render_redirect("dashboard")
 }
 
-pub async fn publish_posts(push: bool) -> anyhow::Result<()> {
-    let mut connection = connect_db().await?;
-    let settings = get_settings_struct(&mut connection).await?;
+pub async fn publish_posts(globals: PageGlobals, push: bool) -> anyhow::Result<()> {
     let follower_rows =
-        query!("SELECT actor FROM activitypub_known_actors WHERE is_following = true")
-            .fetch_all(&mut connection)
+        query!("SELECT actor FROM activitypub_known_actors aka WHERE EXISTS (SELECT 1 FROM activitypub_followers af WHERE af.actor_id = aka.id AND af.site_id=$1)", globals.site_id)
+            .fetch_all(&globals.connection_pool)
             .await?;
     let followers: Vec<String> = follower_rows
         .into_iter()
         .map(|r| r.actor.unwrap())
         .collect();
 
-    let to_post = query!("SELECT id, title, summary, url_slug, post_date FROM posts p WHERE NOT EXISTS (SELECT 1 FROM activitypub_outbox o WHERE o.source_post = p.id) AND p.state = 'published'")
-        .fetch_all(&mut connection)
+    let to_post = query!("SELECT id, title, summary, url_slug, post_date FROM posts p WHERE p.site_id = $1 AND NOT EXISTS (SELECT 1 FROM activitypub_outbox o WHERE o.source_post = p.id) AND p.state = 'published'", globals.site_id)
+        .fetch_all(&globals.connection_pool)
         .await?;
+
+    let settings = get_settings_struct(&globals.connection_pool, globals.site_id).await?;
 
     for post in to_post {
         let post_url = blog_post_url(post.url_slug, post.post_date, settings.base_url.clone())?;
@@ -86,16 +86,17 @@ pub async fn publish_posts(push: bool) -> anyhow::Result<()> {
         );
 
         let inserted = query!(
-            "INSERT INTO activitypub_outbox(activity_id, activity, source_post) VALUES($1, $2, $3) RETURNING id",
+            "INSERT INTO activitypub_outbox(activity_id, activity, source_post, site_id) VALUES($1, $2, $3, $4) RETURNING id",
             post_url,
             Json(create) as _,
-            post.id
+            post.id,
+			globals.site_id
         )
-        .fetch_one(&mut connection)
+        .fetch_one(&globals.connection_pool)
         .await?;
         if push {
             for f in &followers {
-                query!("INSERT INTO activitypub_outbox_target(activitypub_outbox_id, target) VALUES ($1, $2)", inserted.id, f).execute(&mut connection).await?;
+                query!("INSERT INTO activitypub_outbox_target(activitypub_outbox_id, target) VALUES ($1, $2)", inserted.id, f).execute(&globals.connection_pool).await?;
             }
         }
     }
@@ -103,12 +104,11 @@ pub async fn publish_posts(push: bool) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub async fn publish_profile_updates() -> anyhow::Result<cgi::Response> {
-    let mut connection = connect_db().await?;
-    let settings = get_settings_struct(&mut connection).await?;
+pub async fn publish_profile_updates(globals: PageGlobals) -> anyhow::Result<cgi::Response> {
+    let settings = get_settings_struct(&globals.connection_pool, globals.site_id).await?;
     let follower_rows =
-        query!("SELECT actor FROM activitypub_known_actors WHERE is_following = true")
-            .fetch_all(&mut connection)
+        query!("SELECT actor FROM activitypub_known_actors aka WHERE EXISTS (SELECT 1 FROM activitypub_followers af WHERE af.actor_id = aka.id AND af.site_id=$1)", globals.site_id)
+            .fetch_all(&globals.connection_pool)
             .await?;
     let followers: Vec<String> = follower_rows
         .into_iter()
@@ -127,11 +127,12 @@ pub async fn publish_profile_updates() -> anyhow::Result<cgi::Response> {
         vec![],
     ));
     let inserted = query!(
-        "INSERT INTO activitypub_outbox(activity_id, activity) VALUES($1, $2) RETURNING id",
+        "INSERT INTO activitypub_outbox(activity_id, activity, site_id) VALUES($1, $2, $3) RETURNING id",
         activity_url,
         Json(update) as _,
+		globals.site_id
     )
-    .fetch_one(&mut connection)
+    .fetch_one(&globals.connection_pool)
     .await?;
     for f in followers {
         query!(
@@ -139,28 +140,29 @@ pub async fn publish_profile_updates() -> anyhow::Result<cgi::Response> {
             inserted.id,
             f
         )
-        .execute(&mut connection)
+        .execute(&globals.connection_pool)
         .await?;
     }
 
     render_redirect("dashboard")
 }
 
-pub async fn send(
-    request: &cgi::Request,
-    query: HashMap<String, String>,
-) -> anyhow::Result<cgi::Response> {
-    let mut connection = connect_db().await?;
-    let id = query.get("id").ok_or(anyhow!("No id"))?.parse::<i32>()?;
-    let settings = get_settings_struct(&mut connection).await?;
+pub async fn send(request: &cgi::Request, globals: PageGlobals) -> anyhow::Result<cgi::Response> {
+    let id = globals
+        .query
+        .get("id")
+        .ok_or(anyhow!("No id"))?
+        .parse::<i32>()?;
+    let settings = get_settings_struct(&globals.connection_pool, globals.site_id).await?;
     match request.method() {
         &Method::GET => {
-            let common = get_common(&mut connection, crate::types::AdminMenuPages::Posts).await?;
+            let common = get_common(&globals, crate::types::AdminMenuPages::Posts).await?;
             let post = query!(
-                "SELECT title, url_slug, post_date FROM posts WHERE id=$1",
-                id
+                "SELECT title, url_slug, post_date FROM posts WHERE id=$1 AND site_id=$2",
+                id,
+                globals.site_id
             )
-            .fetch_one(&mut connection)
+            .fetch_one(&globals.connection_pool)
             .await?;
 
             let post_url = blog_post_url(post.url_slug, post.post_date, settings.base_url)?;
@@ -170,7 +172,7 @@ pub async fn send(
             })
         }
         &Method::POST => {
-            let body = post_body::<HashMap<String, String>>(request)?;
+            let body = post_body::<HashMap<String, String>>(&request)?;
             let note_id = format!(
                 "{}/notes/{}",
                 settings.activitypub_base(),
@@ -193,14 +195,15 @@ pub async fn send(
             );
 
             let inserted = query!(
-                "INSERT INTO activitypub_outbox(activity_id, activity) VALUES($1, $2) RETURNING id",
+                "INSERT INTO activitypub_outbox(activity_id, activity, site_id) VALUES($1, $2, $3) RETURNING id",
                 note_id,
-                Json(create) as _
+                Json(create) as _,
+				globals.site_id
             )
-            .fetch_one(&mut connection)
+            .fetch_one(&globals.connection_pool)
             .await?;
 
-            query!("INSERT INTO activitypub_outbox_target(activitypub_outbox_id, target) VALUES ($1, $2)", inserted.id, to).execute(&mut connection).await?;
+            query!("INSERT INTO activitypub_outbox_target(activitypub_outbox_id, target) VALUES ($1, $2)", inserted.id, to).execute(&globals.connection_pool).await?;
 
             render_redirect("dashboard")
         }
@@ -208,9 +211,8 @@ pub async fn send(
     }
 }
 
-pub async fn feed() -> anyhow::Result<cgi::Response> {
-    let mut connection = connect_db().await?;
-    let common = get_common(&mut connection, crate::types::AdminMenuPages::Fediverse).await?;
+pub async fn feed(globals: PageGlobals) -> anyhow::Result<cgi::Response> {
+    let common = get_common(&globals, crate::types::AdminMenuPages::Fediverse).await?;
     let messages = query_as!(
         FeedMessage,
         r#"
@@ -221,10 +223,12 @@ SELECT
 FROM activitypub_feed f
 INNER JOIN activitypub_known_actors a
 ON a.id = f.actor_id
+WHERE site_id=$1
 ORDER BY message_timestamp DESC
-"#
+"#,
+        globals.site_id
     )
-    .fetch_all(&mut connection)
+    .fetch_all(&globals.connection_pool)
     .await?;
 
     render_html(FeedPage { common, messages })

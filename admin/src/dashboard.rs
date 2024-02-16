@@ -1,11 +1,11 @@
 use crate::{
     common::{get_common, Common},
-    types::AdminMenuPages,
+    types::{AdminMenuPages, PageGlobals},
 };
 use askama::Template;
 use cgi;
 use chrono::{DateTime, Utc};
-use shared::{database, utils::render_html};
+use shared::utils::render_html;
 use sqlx::query_as;
 use std::fmt;
 
@@ -52,9 +52,8 @@ struct DashboardPost {
     pub like_count: i64,
 }
 
-pub async fn render(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
-    let mut connection = database::connect_db().await?;
-    session::session_id(&mut connection, &request).await?;
+pub async fn render(request: &cgi::Request, globals: PageGlobals) -> anyhow::Result<cgi::Response> {
+    session::session_id(&globals.connection_pool, &request).await?;
 
     let recent_posts = query_as!(
         DashboardPost,
@@ -67,7 +66,7 @@ WHERE state = 'published'
 ORDER BY post_date DESC
 FETCH FIRST 10 ROWS ONLY"#
     )
-    .fetch_all(&mut connection)
+    .fetch_all(&globals.connection_pool)
     .await?;
 
     let followers = query_as!(
@@ -79,10 +78,10 @@ WHERE is_following=true AND actor IS NOT NULL
 ORDER BY first_seen DESC
 "#
     )
-    .fetch_all(&mut connection)
+    .fetch_all(&globals.connection_pool)
     .await?;
 
-    let common = get_common(&mut connection, AdminMenuPages::Dashboard).await?;
+    let common = get_common(&globals, AdminMenuPages::Dashboard).await?;
     let content = Dashboard {
         common,
         recent_posts,

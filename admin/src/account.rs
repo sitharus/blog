@@ -1,17 +1,12 @@
 use crate::{
     common::{get_common, Common},
-    types::AdminMenuPages,
+    types::{AdminMenuPages, PageGlobals},
 };
 use askama::Template;
 use cgi;
 use serde::Deserialize;
-use shared::{
-    database,
-    utils::{post_body, render_html},
-};
+use shared::utils::{post_body, render_html};
 use sqlx::query;
-
-use super::session;
 
 #[derive(Template)]
 #[template(path = "account.html")]
@@ -29,12 +24,9 @@ struct FormContent {
     repeat_new_password: Option<String>,
 }
 
-pub async fn render(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
-    let mut connection = database::connect_db().await?;
-    let session = session::session_id(&mut connection, &request).await?;
-
+pub async fn render(request: &cgi::Request, globals: PageGlobals) -> anyhow::Result<cgi::Response> {
     if request.method() == "POST" {
-        let form: FormContent = post_body(request)?;
+        let form: FormContent = post_body(&request)?;
         match (form.target.as_str(), &form) {
             (
                 "details",
@@ -46,9 +38,9 @@ pub async fn render(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
                 query!(
                     "UPDATE users SET display_name = $1 WHERE id = $2",
                     name,
-                    session.user_id
+                    globals.session.user_id
                 )
-                .execute(&mut connection)
+                .execute(&globals.connection_pool)
                 .await?;
             }
             (
@@ -60,19 +52,21 @@ pub async fn render(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
                     ..
                 },
             ) if new_password == repeat_new_password => {
-                let existing_password =
-                    query!("SELECT password FROM users WHERE id=$1", session.user_id)
-                        .fetch_one(&mut connection)
-                        .await
-                        .unwrap();
+                let existing_password = query!(
+                    "SELECT password FROM users WHERE id=$1",
+                    globals.session.user_id
+                )
+                .fetch_one(&globals.connection_pool)
+                .await
+                .unwrap();
                 bcrypt::verify(&current_password.as_bytes(), &existing_password.password)?;
                 let new_hash = bcrypt::hash(new_password, bcrypt::DEFAULT_COST)?;
                 query!(
                     "UPDATE users SET password = $1 WHERE id = $2",
                     new_hash,
-                    session.user_id
+                    globals.session.user_id
                 )
-                .execute(&mut connection)
+                .execute(&globals.connection_pool)
                 .await?;
             }
 
@@ -82,12 +76,12 @@ pub async fn render(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
 
     let details = query!(
         "SELECT display_name FROM users WHERE id=$1",
-        session.user_id
+        globals.session.user_id
     )
-    .fetch_one(&mut connection)
+    .fetch_one(&globals.connection_pool)
     .await?;
 
-    let common = get_common(&mut connection, AdminMenuPages::Account).await?;
+    let common = get_common(&globals, AdminMenuPages::Account).await?;
     let content = Account {
         common,
         name: details.display_name.unwrap_or("".into()),

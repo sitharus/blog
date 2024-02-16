@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use anyhow::{anyhow, bail};
 use askama::Template;
 use cgi;
-use common::{get_common, Common};
 use generator::preview_page;
 use media::manage_media;
 use serde::Deserialize;
@@ -14,6 +13,7 @@ use shared::{
     utils::{parse_query_string, render_html, render_html_status, render_redirect},
 };
 use tokio::runtime::Runtime;
+use types::PageGlobals;
 
 mod account;
 mod activitypub;
@@ -46,7 +46,6 @@ struct Page404 {}
 #[derive(Template)]
 #[template(path = "500.html")]
 struct Page500 {
-    common: Common,
     message: String,
 }
 
@@ -68,13 +67,13 @@ async fn do_login(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
     let post_items = request.body();
     let form: LoginForm = from_bytes(post_items, ParseMode::UrlEncoded)?;
 
-    let mut db_connection = database::connect_db().await?;
+    let db_connection = database::connect_db().await?;
     let single_row = sqlx::query_as!(
         UserRow,
         "SELECT id, password FROM users WHERE username = $1",
         form.username.as_str()
     )
-    .fetch_one(&mut db_connection)
+    .fetch_one(&db_connection)
     .await;
 
     fn invalid_user(form: LoginForm) -> anyhow::Result<cgi::Response> {
@@ -92,7 +91,7 @@ async fn do_login(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
             let pwbytes = form.password.as_bytes();
             if let Ok(success) = bcrypt::verify(&pwbytes, &dbpassword) {
                 if success {
-                    session::set_session_and_redirect(&mut db_connection, row.id, "dashboard").await
+                    session::set_session_and_redirect(&db_connection, row.id, "dashboard").await
                 } else {
                     invalid_user(form)
                 }
@@ -103,10 +102,10 @@ async fn do_login(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
                     hashed,
                     row.id
                 )
-                .execute(&mut db_connection)
+                .execute(&db_connection)
                 .await?;
 
-                session::set_session_and_redirect(&mut db_connection, row.id, "dashboard").await
+                session::set_session_and_redirect(&db_connection, row.id, "dashboard").await
             } else {
                 invalid_user(form)
             }
@@ -126,47 +125,53 @@ async fn process_inner(
 ) -> anyhow::Result<cgi::Response> {
     let query: HashMap<String, String> = parse_query_string(query_string)?;
 
-    let action = query.get("action").ok_or(anyhow!("No action supplied"))?;
+    let action = query
+        .get("action")
+        .ok_or(anyhow!("No action supplied"))?
+        .clone();
     if action == "login" {
         do_login(request).await
     } else {
-        let mut connection = database::connect_db().await?;
-        session::session_id(&mut connection, &request).await?;
+        let pool = database::connect_db().await?;
+        let session = session::session_id(&pool, &request).await?;
+        let page_request = PageGlobals {
+            query,
+            site_id: 1,
+            connection_pool: pool,
+            session,
+        };
         match action.as_str() {
-            "dashboard" => dashboard::render(request).await,
-            "new-post" => post::new_post(request).await,
+            "dashboard" => dashboard::render(&request, page_request).await,
+            "new-post" => post::new_post(&request, page_request).await,
             "regenerate" => {
-                generator::regenerate_blog(request).await?;
-                activitypub::publish_posts(true).await?;
+                generator::regenerate_blog(&page_request).await?;
+                activitypub::publish_posts(page_request, true).await?;
                 render_redirect("dashboard")
             }
-            "account" => account::render(request).await,
-            "settings" => settings::render(request).await,
-            "links" => links::render(request).await,
-            "posts" => post::manage_posts(query).await,
-            "edit_post" => post::edit_post(request, query).await,
-            "comments" => comments::comment_list().await,
-            "moderate_comment" => comments::moderate_comment(request).await,
-            "preview" => preview_page(request).await,
-            "manage_pages" => page::manage_pages().await,
-            "new_page" => page::new_page(request).await,
-            "edit_page" => page::edit_post(request, query).await,
-            "media" => manage_media(request).await,
-            "profile_update" => activitypub::publish_profile_updates().await,
-            "publish_posts" => activitypub::publish_posts_from_request(query).await,
-            "send_post" => activitypub::send(request, query).await,
-            "activitypub_feed" => activitypub::feed().await,
-            "tags" => tags::render(request).await,
+            "account" => account::render(&request, page_request).await,
+            "settings" => settings::render(&request, page_request).await,
+            "links" => links::render(&request, page_request).await,
+            "edit_post" => post::edit_post(&request, page_request).await,
+            "manage_posts" => post::manage_posts(page_request).await,
+            "comments" => comments::comment_list(page_request).await,
+            "moderate_comment" => comments::moderate_comment(&request, page_request).await,
+            "preview" => preview_page(&request, page_request).await,
+            "manage_pages" => page::manage_pages(page_request).await,
+            "new_page" => page::new_page(&request, page_request).await,
+            "edit_page" => page::edit_post(&request, page_request).await,
+            "media" => manage_media(&request, page_request).await,
+            "profile_update" => activitypub::publish_profile_updates(page_request).await,
+            "publish_posts" => activitypub::publish_posts_from_request(page_request).await,
+            "send_post" => activitypub::send(&request, page_request).await,
+            "activitypub_feed" => activitypub::feed(page_request).await,
+            "tags" => tags::render(&request, page_request).await,
             _ => do_404().await,
         }
     }
 }
 
 async fn render_500(e: anyhow::Error) -> anyhow::Result<cgi::Response> {
-    let mut connection = database::connect_db().await?;
-    let common = get_common(&mut connection, types::AdminMenuPages::Dashboard).await?;
     render_html(Page500 {
-        common,
         message: format!("{:?}", e),
     })
 }

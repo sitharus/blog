@@ -2,7 +2,7 @@ use anyhow::anyhow;
 use chrono::{naive::Days, offset::Utc, DateTime};
 use serde::Deserialize;
 use serde_querystring::{from_str, ParseMode};
-use sqlx::postgres::PgConnection;
+use sqlx::PgPool;
 use uuid::Uuid;
 
 pub struct Session {
@@ -40,10 +40,7 @@ impl std::error::Error for SessionError {
     }
 }
 
-pub async fn session_id(
-    connection: &mut PgConnection,
-    request: &cgi::Request,
-) -> anyhow::Result<Session> {
+pub async fn session_id(connection: &PgPool, request: &cgi::Request) -> anyhow::Result<Session> {
     let headers = request.headers();
     if !headers.contains_key(http::header::COOKIE) {
         return Err(anyhow!(SessionError::NotFound));
@@ -74,7 +71,7 @@ pub async fn session_id(
 }
 
 pub async fn set_session_and_redirect(
-    connection: &mut PgConnection,
+    connection: &PgPool,
     user_id: i32,
     destination: &str,
 ) -> anyhow::Result<cgi::Response> {

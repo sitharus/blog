@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use sqlx::{query, PgConnection};
+use sqlx::{query, PgPool};
 
 use std::{
     collections::HashMap,
@@ -116,11 +116,15 @@ impl Settings {
 }
 
 pub async fn get_settings(
-    connection: &mut PgConnection,
+    connection: &PgPool,
+    site_id: i32,
 ) -> anyhow::Result<HashMap<SettingNames, String>> {
-    let all_settings = query!("SELECT setting_name, value FROM blog_settings")
-        .fetch_all(connection)
-        .await?;
+    let all_settings = query!(
+        "SELECT setting_name, value FROM blog_settings WHERE site_id=$1",
+        site_id
+    )
+    .fetch_all(connection)
+    .await?;
 
     let map = HashMap::from_iter(
         all_settings
@@ -131,8 +135,8 @@ pub async fn get_settings(
     Ok(map)
 }
 
-pub async fn get_settings_struct(connection: &mut PgConnection) -> anyhow::Result<Settings> {
-    let all_settings = get_settings(connection).await?;
+pub async fn get_settings_struct(connection: &PgPool, site_id: i32) -> anyhow::Result<Settings> {
+    let all_settings = get_settings(connection, site_id).await?;
 
     Ok(Settings {
         blog_name: all_settings

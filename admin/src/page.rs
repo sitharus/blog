@@ -1,20 +1,15 @@
-use std::collections::HashMap;
-
 use anyhow::anyhow;
 use askama::Template;
 use chrono::{DateTime, Utc};
 use regex::Regex;
 use serde::Deserialize;
-use shared::{
-    database::connect_db,
-    utils::{parse_into, post_body, render_html},
-};
+use shared::utils::{parse_into, post_body, render_html};
 use sqlx::{query, query_as};
 
 use crate::{
     common::{get_common, Common},
-    filters, response, session,
-    types::AdminMenuPages,
+    filters, response,
+    types::{AdminMenuPages, PageGlobals},
 };
 
 #[derive(Deserialize)]
@@ -56,27 +51,28 @@ struct PageListItem {
     title: String,
 }
 
-pub async fn manage_pages() -> anyhow::Result<cgi::Response> {
-    let mut conn = connect_db().await?;
+pub async fn manage_pages(globals: PageGlobals) -> anyhow::Result<cgi::Response> {
     let pages = query_as!(
         PageListItem,
-        "SELECT id, title, date_updated, url_slug FROM pages ORDER BY title"
+        "SELECT id, title, date_updated, url_slug FROM pages WHERE site_id=$1 ORDER BY title",
+        globals.site_id
     )
-    .fetch_all(&mut conn)
+    .fetch_all(&globals.connection_pool)
     .await?;
-    let common = get_common(&mut conn, AdminMenuPages::Pages).await?;
+    let common = get_common(&globals, AdminMenuPages::Pages).await?;
 
     render_html(ManagePages { common, pages })
 }
 
-pub async fn new_page(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
-    let mut conn = connect_db().await?;
-
-    let common = get_common(&mut conn, AdminMenuPages::Pages).await?;
+pub async fn new_page(
+    request: &cgi::Request,
+    globals: PageGlobals,
+) -> anyhow::Result<cgi::Response> {
+    let common = get_common(&globals, AdminMenuPages::Pages).await?;
 
     if request.method() == "POST" {
-        let session::Session { user_id, .. } = session::session_id(&mut conn, &request).await?;
-        let req: NewPageRequest = post_body(request)?;
+        let req: NewPageRequest = post_body(&request)?;
+        let user_id = globals.session.user_id;
         let invalid_chars = Regex::new(r"[^a-z0-9_-]+")?;
         let mut initial_slug = if req.slug == "" {
             req.title.clone()
@@ -92,15 +88,16 @@ pub async fn new_page(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
 
         let result = sqlx::query!(
             "
-INSERT INTO pages (author_id, date_updated, url_slug, title, body)
-VALUES ($1, current_timestamp,  $2, $3, $4)
+INSERT INTO pages (author_id, date_updated, url_slug, title, body, site_id)
+VALUES ($1, current_timestamp,  $2, $3, $4, $5)
 ",
             user_id,
             final_slug,
             req.title,
-            req.body
+            req.body,
+            globals.site_id
         )
-        .execute(&mut conn)
+        .execute(&globals.connection_pool)
         .await;
 
         match result {
@@ -124,26 +121,27 @@ VALUES ($1, current_timestamp,  $2, $3, $4)
 
 pub async fn edit_post(
     request: &cgi::Request,
-    query: HashMap<String, String>,
+    globals: PageGlobals,
 ) -> anyhow::Result<cgi::Response> {
-    let mut connection = connect_db().await?;
-    let id: i32 = query
+    let id: i32 = globals
+        .query
         .get("id")
         .ok_or(anyhow!("Could not find id"))
         .and_then(parse_into)?;
 
-    let common = get_common(&mut connection, AdminMenuPages::Pages).await?;
+    let common = get_common(&globals, AdminMenuPages::Pages).await?;
 
     if request.method() == "POST" {
-        let req: NewPageRequest = post_body(request)?;
+        let req: NewPageRequest = post_body(&request)?;
         let response = query!(
-            "UPDATE pages SET title=$1, url_slug=$2, body=$3 WHERE id=$4",
+            "UPDATE pages SET title=$1, url_slug=$2, body=$3 WHERE id=$4 AND site_id=$5",
             req.title,
             req.slug,
             req.body,
-            id
+            id,
+            globals.site_id
         )
-        .execute(&mut connection)
+        .execute(&globals.connection_pool)
         .await;
 
         match response {
@@ -156,9 +154,13 @@ pub async fn edit_post(
             }),
         }
     } else {
-        let page = query!("SELECT title, url_slug, body FROM pages WHERE id=$1", id)
-            .fetch_one(&mut connection)
-            .await?;
+        let page = query!(
+            "SELECT title, url_slug, body FROM pages WHERE id=$1 AND site_id=$2",
+            id,
+            globals.site_id
+        )
+        .fetch_one(&globals.connection_pool)
+        .await?;
         render_html(EditPage {
             common,
             title: page.title.into(),

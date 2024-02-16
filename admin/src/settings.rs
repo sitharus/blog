@@ -2,7 +2,7 @@ use std::io::Cursor;
 
 use crate::{
     common::{get_common, Common},
-    types::AdminMenuPages,
+    types::{AdminMenuPages, PageGlobals},
 };
 use anyhow::anyhow;
 use askama::Template;
@@ -12,7 +12,6 @@ use chrono::Utc;
 use futures_util::stream::once;
 use multer::Multipart;
 use shared::{
-    database,
     errors::BlogError,
     settings::{get_settings_struct, SettingNames, Settings as SettingsStruct},
 };
@@ -43,9 +42,7 @@ const STRING_FIELDS: [&'static str; 11] = [
 const FILE_FIELDS: [&'static str; 2] = ["fedi_avatar", "fedi_header"];
 const IMAGE_TYPES: [&'static str; 2] = ["image/jpeg", "image/png"];
 
-pub async fn render(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
-    let mut connection = database::connect_db().await?;
-
+pub async fn render(request: &cgi::Request, globals: PageGlobals) -> anyhow::Result<cgi::Response> {
     if request.method() == "POST" {
         let content_type = request
             .headers()
@@ -63,11 +60,12 @@ pub async fn render(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
             if STRING_FIELDS.contains(&n.as_str()) {
                 let content = field.text().await?.clone();
                 query!(
-                        "INSERT INTO blog_settings VALUES($1, $2) ON CONFLICT (setting_name) DO UPDATE SET value = EXCLUDED.value",
+                        "INSERT INTO blog_settings VALUES($1, $2, $3) ON CONFLICT (setting_name, site_id) DO UPDATE SET value = EXCLUDED.value",
                         n,
-                        content,
+                    content,
+					globals.site_id
                     )
-                    .execute(&mut connection)
+                    .execute(&globals.connection_pool)
                             .await?;
             } else if FILE_FIELDS.contains(&n.as_str()) {
                 let content_type = field
@@ -81,8 +79,8 @@ pub async fn render(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
                 let type_str = content_type.essence_str();
                 if IMAGE_TYPES.contains(&type_str) {
                     let media_path_setting =
-                        query!("SELECT value FROM blog_settings WHERE setting_name='media_path'")
-                            .fetch_one(&mut connection)
+                        query!("SELECT value FROM blog_settings WHERE setting_name='media_path' AND site_id=$1", globals.site_id)
+                            .fetch_one(&globals.connection_pool)
                             .await?;
 
                     let ext = if content_type == "image/png" {
@@ -102,26 +100,27 @@ pub async fn render(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
                     let mut cursor = Cursor::new(bytes);
                     file.write_all_buf(&mut cursor).await?;
 
-                    query!("INSERT INTO blog_settings VALUES($1, $2) ON CONFLICT (setting_name) DO UPDATE SET value = EXCLUDED.value", n, filename)
-                        .execute(&mut connection)
+                    query!("INSERT INTO blog_settings VALUES($1, $2, $3) ON CONFLICT (setting_name, site_id) DO UPDATE SET value = EXCLUDED.value", n, filename, globals.site_id)
+                        .execute(&globals.connection_pool)
                         .await?;
                 }
             }
         }
 
         query!(
-            "INSERT INTO blog_settings VALUES($1, $2) ON CONFLICT (setting_name) DO UPDATE SET value = EXCLUDED.value",
+            "INSERT INTO blog_settings VALUES($1, $2, $3) ON CONFLICT (setting_name, site_id) DO UPDATE SET value = EXCLUDED.value",
             SettingNames::ProfileLastUpdated.to_string(),
-            Utc::now().to_rfc3339()
+            Utc::now().to_rfc3339(),
+				globals.site_id
         )
-        .execute(&mut connection)
+        .execute(&globals.connection_pool)
         .await?;
     }
 
-    let common = get_common(&mut connection, AdminMenuPages::Settings).await?;
+    let common = get_common(&globals, AdminMenuPages::Settings).await?;
     let page = Settings {
         common,
-        settings: get_settings_struct(&mut connection).await?,
+        settings: get_settings_struct(&globals.connection_pool, globals.site_id).await?,
     };
     Ok(cgi::html_response(200, page.render().unwrap()))
 }

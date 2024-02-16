@@ -14,6 +14,7 @@ pub struct HydratedPost {
     pub mood: Option<String>,
     pub summary: Option<String>,
     pub tags: Option<Vec<String>>,
+    pub site_id: i32,
 }
 
 pub struct HydratedComment {

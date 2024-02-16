@@ -6,12 +6,14 @@ use image::{imageops::FilterType, io::Reader as ImageReader};
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use multer::Multipart;
-use shared::{database::connect_db, types::ImageMetadata, utils::render_html};
+use shared::settings::get_settings_struct;
+use shared::{types::ImageMetadata, utils::render_html};
 use sqlx::{query, types::Json};
 use std::io::Cursor;
 use std::{collections::HashMap, convert::Infallible};
 
 use crate::common::{get_common, Common};
+use crate::types::PageGlobals;
 
 #[derive(Template)]
 #[template(path = "media.html")]
@@ -36,14 +38,13 @@ lazy_static! {
     ]);
 }
 
-pub async fn manage_media(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
-    let mut conn = connect_db().await?;
+pub async fn manage_media(
+    request: &cgi::Request,
+    globals: PageGlobals,
+) -> anyhow::Result<cgi::Response> {
+    let settings = get_settings_struct(&globals.connection_pool, globals.site_id).await?;
     if request.method() == "POST" {
-        let mut media_path =
-            query!("SELECT value FROM blog_settings WHERE setting_name='media_path'")
-                .fetch_one(&mut conn)
-                .await?
-                .value;
+        let mut media_path = settings.media_path.to_owned();
 
         if !media_path.ends_with("/") {
             media_path = format!("{}/", media_path);
@@ -84,10 +85,11 @@ pub async fn manage_media(request: &cgi::Request) -> anyhow::Result<cgi::Respons
                 .ok_or(anyhow!("No extension found!"))?;
 
             let result = query!(
-                "INSERT INTO media(file_type, file) VALUES('image', $1) RETURNING id",
+                "INSERT INTO media(file_type, file, site_id) VALUES('image', $1, $2) RETURNING id",
                 filename,
+                globals.site_id
             )
-            .fetch_one(&mut conn)
+            .fetch_one(&globals.connection_pool)
             .await?;
 
             let disk_name = format!("{}_orig.{}", result.id, ext);
@@ -101,11 +103,12 @@ pub async fn manage_media(request: &cgi::Request) -> anyhow::Result<cgi::Respons
             };
 
             query!(
-                "UPDATE media SET metadata=$1 WHERE id=$2",
+                "UPDATE media SET metadata=$1 WHERE id=$2 AND site_id=$3",
                 Json(metadata) as _,
-                result.id
+                result.id,
+                globals.site_id
             )
-            .execute(&mut conn)
+            .execute(&globals.connection_pool)
             .await?;
 
             image.save(format!("{}{}", media_path, disk_name))?;
@@ -121,9 +124,9 @@ pub async fn manage_media(request: &cgi::Request) -> anyhow::Result<cgi::Respons
     }
 
     let media_raw = query!(
-        r#"SELECT id, file, metadata AS "metadata: Json<ImageMetadata>" FROM media ORDER BY id asc"#
+        r#"SELECT id, file, metadata AS "metadata: Json<ImageMetadata>" FROM media WHERE site_id=$1 ORDER BY id asc"#, globals.site_id
     )
-    .fetch_all(&mut conn)
+    .fetch_all(&globals.connection_pool)
     .await?;
 
     let media = media_raw
@@ -135,6 +138,6 @@ pub async fn manage_media(request: &cgi::Request) -> anyhow::Result<cgi::Respons
         })
         .collect_vec();
 
-    let common = get_common(&mut conn, crate::types::AdminMenuPages::Media).await?;
+    let common = get_common(&globals, crate::types::AdminMenuPages::Media).await?;
     render_html(ManageMedia { common, media })
 }

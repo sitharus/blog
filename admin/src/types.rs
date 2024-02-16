@@ -1,8 +1,12 @@
 use core::fmt;
+use std::collections::HashMap;
 
 use chrono::NaiveDate;
 use serde::Deserialize;
 use shared::types::PostStatus;
+use sqlx::PgPool;
+
+use crate::session::Session;
 
 pub enum AdminMenuPages {
     Dashboard,
@@ -53,4 +57,11 @@ pub struct PostRequest {
     pub mood: Option<String>,
     pub summary: Option<String>,
     pub tags: Option<Vec<i32>>,
+}
+
+pub struct PageGlobals {
+    pub site_id: i32,
+    pub query: HashMap<String, String>,
+    pub connection_pool: PgPool,
+    pub session: Session,
 }

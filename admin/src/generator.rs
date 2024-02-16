@@ -1,8 +1,6 @@
 use crate::response::redirect_response;
-use crate::session::{self, session_id};
-use crate::types::PostRequest;
+use crate::types::{PageGlobals, PostRequest};
 use shared::activities::Activity;
-use shared::database::{self, connect_db};
 use shared::generator::{filters, get_common};
 use shared::types::{CommonData, HydratedComment, HydratedPost};
 use shared::utils::{post_body, render_html};
@@ -12,6 +10,7 @@ use askama::Template;
 use chrono::{offset::Utc, DateTime, Datelike, Month, NaiveDate};
 use itertools::Itertools;
 use num_traits::FromPrimitive;
+use sqlx::PgPool;
 use sqlx::{query, query_as, types::Json};
 use std::env;
 use std::fs::File;
@@ -81,25 +80,30 @@ struct Page<'a> {
     last_updated: DateTime<Utc>,
 }
 
-pub async fn preview_page(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
-    let mut connection = connect_db().await?;
-    let common = get_common(&mut connection).await?;
-    let session = session_id(&mut connection, request).await?;
+pub async fn preview_page(
+    request: &cgi::Request,
+    globals: PageGlobals,
+) -> anyhow::Result<cgi::Response> {
+    let common = get_common(&globals.connection_pool, globals.site_id).await?;
     let user = query!(
         "SELECT display_name FROM users WHERE id=$1",
-        session.user_id
+        globals.session.user_id
     )
-    .fetch_one(&mut connection)
+    .fetch_one(&globals.connection_pool)
     .await?;
 
-    let data: PostRequest = post_body(request)?;
+    let data: PostRequest = post_body(&request)?;
 
     let mut tags: Vec<String> = Vec::new();
     if let Some(tag_ids) = data.tags {
         for t in tag_ids {
-            let result = query!("SELECT name FROM tags WHERE id=$1", t)
-                .fetch_one(&mut connection)
-                .await?;
+            let result = query!(
+                "SELECT name FROM tags WHERE id=$1 AND site_id=$2",
+                t,
+                globals.site_id
+            )
+            .fetch_one(&globals.connection_pool)
+            .await?;
             tags.push(result.name);
         }
     }
@@ -116,6 +120,7 @@ pub async fn preview_page(request: &cgi::Request) -> anyhow::Result<cgi::Respons
         author_name: user.display_name,
         comment_count: Some(0),
         tags: Some(tags),
+        site_id: globals.site_id,
     };
 
     let post_page = PostPage {
@@ -128,9 +133,7 @@ pub async fn preview_page(request: &cgi::Request) -> anyhow::Result<cgi::Respons
     render_html(post_page)
 }
 
-pub async fn regenerate_blog(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
-    let mut connection = database::connect_db().await?;
-    session::session_id(&mut connection, &request).await?;
+pub async fn regenerate_blog(globals: &PageGlobals) -> anyhow::Result<cgi::Response> {
     let output_path =
         env::var("BLOG_OUTPUT_PATH").expect("Environment variable BLOG_OUTPUT_PATH is required");
 
@@ -148,25 +151,27 @@ SELECT
     summary,
     users.display_name AS author_name,
     (SELECT COUNT(*) FROM comments WHERE comments.post_id = posts.id) AS comment_count,
-    (SELECT array_agg(t.name) FROM tags t INNER JOIN post_tag pt ON pt.tag_id = t.id WHERE pt.post_id = posts.id) AS tags
+    (SELECT array_agg(t.name) FROM tags t INNER JOIN post_tag pt ON pt.tag_id = t.id WHERE pt.post_id = posts.id) AS tags,
+	site_id
 FROM posts
 INNER JOIN users
 ON users.id = posts.author_id
 WHERE state = 'published'
+AND posts.site_id = $1
 ORDER BY post_date DESC
-"#
+"#, globals.site_id
     )
-    .fetch_all(&mut connection)
+    .fetch_all(&globals.connection_pool)
     .await?;
 
     if posts.len() == 0 {
         return Ok(redirect_response("dashboard"));
     }
 
-    let common = get_common(&mut connection).await?;
+    let common = get_common(&globals.connection_pool, globals.site_id).await?;
 
     for post in &posts {
-        generate_post_page(&output_path, post, &common, &mut connection).await?;
+        generate_post_page(&output_path, post, &common, &globals.connection_pool).await?;
     }
 
     generate_paged(
@@ -180,8 +185,21 @@ ORDER BY post_date DESC
     regenerate_year_index_pages(&output_path, &posts, &common).await?;
     regenerate_rss_feed(&output_path, &posts, &common).await?;
     regenerate_atom_feed(&output_path, &posts, &common).await?;
-    regenerate_tag_indexes(&mut connection, &output_path, &posts, &common).await?;
-    regenerate_pages(&output_path, &mut connection, &common).await?;
+    regenerate_tag_indexes(
+        &globals.connection_pool,
+        &output_path,
+        globals.site_id,
+        &posts,
+        &common,
+    )
+    .await?;
+    regenerate_pages(
+        &output_path,
+        globals.site_id,
+        &globals.connection_pool,
+        &common,
+    )
+    .await?;
 
     Ok(redirect_response("dashboard"))
 }
@@ -218,9 +236,9 @@ async fn generate_post_page(
     output_path: &String,
     post: &HydratedPost,
     common: &CommonData,
-    connection: &mut sqlx::PgConnection,
+    connection: &PgPool,
 ) -> anyhow::Result<()> {
-    let comments = query_as!(HydratedComment, "SELECT author_name, post_body, created_date FROM comments WHERE post_id=$1 AND status = 'approved' ORDER BY created_date ASC", post.id).fetch_all(&mut *connection).await?;
+    let comments = query_as!(HydratedComment, "SELECT author_name, post_body, created_date FROM comments WHERE post_id=$1 AND status = 'approved' ORDER BY created_date ASC", post.id).fetch_all(connection).await?;
 
     let month_name = Month::from_u32(post.post_date.month())
         .ok_or(anyhow!("Bad month number"))?
@@ -244,7 +262,7 @@ async fn generate_post_page(
         r#"SELECT activity AS "activity: Json<Activity>" FROM activitypub_outbox WHERE source_post=$1"#,
         post.id
     )
-    .fetch_optional(&mut *connection)
+    .fetch_optional(connection)
     .await?;
 
     if let Some(row) = activitypub {
@@ -397,12 +415,16 @@ async fn regenerate_year_index_pages(
 
 async fn regenerate_pages(
     output_path: &String,
-    connection: &mut sqlx::PgConnection,
+    site_id: i32,
+    connection: &PgPool,
     common: &CommonData,
 ) -> anyhow::Result<()> {
-    let pages = query!("SELECT title, url_slug, body, date_updated FROM pages")
-        .fetch_all(connection)
-        .await?;
+    let pages = query!(
+        "SELECT title, url_slug, body, date_updated FROM pages WHERE site_id=$1",
+        site_id
+    )
+    .fetch_all(connection)
+    .await?;
 
     for page in pages {
         let mut file = File::create(format!("{}/{}.html", output_path, page.url_slug))?;
@@ -420,12 +442,13 @@ async fn regenerate_pages(
 }
 
 async fn regenerate_tag_indexes(
-    connection: &mut sqlx::PgConnection,
+    connection: &PgPool,
     output_path: &String,
+    site_id: i32,
     posts: &Vec<HydratedPost>,
     common: &CommonData,
 ) -> anyhow::Result<()> {
-    let all_tags = query!("SELECT name FROM tags")
+    let all_tags = query!("SELECT name FROM tags WHERE site_id=$1", site_id)
         .fetch_all(connection)
         .await?;
     for tag_row in all_tags {
