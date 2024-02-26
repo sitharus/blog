@@ -3,16 +3,19 @@ use cgi::http::header;
 use serde_json::Value;
 use shared::{
     activities::{Activity, OrderedCollection},
-    settings::Settings,
+    settings::{get_settings_struct, Settings},
 };
-use sqlx::{query, PgConnection};
+use sqlx::{query, PgPool};
 
 use crate::{actor::get_actor, http_signatures, utils::jsonld_response};
 
-pub async fn render(connection: &mut PgConnection) -> anyhow::Result<cgi::Response> {
-    let contents = query!("SELECT activity FROM activitypub_outbox ORDER BY created_at DESC")
-        .fetch_all(connection)
-        .await?;
+pub async fn render(connection: &PgPool, settings: &Settings) -> anyhow::Result<cgi::Response> {
+    let contents = query!(
+        "SELECT activity FROM activitypub_outbox WHERE site_id=$1 ORDER BY created_at DESC",
+        settings.site_id
+    )
+    .fetch_all(connection)
+    .await?;
 
     let outbox: OrderedCollection<Activity> = OrderedCollection {
         summary: Some("Outbox".into()),
@@ -25,10 +28,10 @@ pub async fn render(connection: &mut PgConnection) -> anyhow::Result<cgi::Respon
     jsonld_response(&outbox)
 }
 
-pub async fn process(connection: &mut PgConnection, settings: Settings) -> anyhow::Result<String> {
+pub async fn process(connection: &PgPool) -> anyhow::Result<String> {
     let to_process = query!(
         r#"
-SELECT o.id AS outbox_id, o.activity_id, o.activity, t.target, k.inbox AS "inbox?"
+SELECT o.id AS outbox_id, o.activity_id, o.activity, t.target, k.inbox AS "inbox?", site_id
 FROM activitypub_outbox o
 INNER JOIN activitypub_outbox_target t
 ON o.id = t.activitypub_outbox_id
@@ -40,12 +43,13 @@ AND t.retries < 5
 ORDER BY t.retries, o.created_at, t.target
 "#
     )
-    .fetch_all(&mut *connection)
+    .fetch_all(connection)
     .await?;
 
     for row in to_process {
+        let settings = get_settings_struct(connection, row.site_id).await?;
         match send_actvity(
-            &mut *connection,
+            connection,
             &row.outbox_id,
             row.activity,
             row.target.clone(),
@@ -56,12 +60,12 @@ ORDER BY t.retries, o.created_at, t.target
         {
             Ok(_) => {
                 query!("UPDATE activitypub_outbox_target SET delivered=true, delivered_at=CURRENT_TIMESTAMP WHERE activitypub_outbox_id=$1 AND target = $2", row.outbox_id, row.target)
-                    .execute(&mut *connection)
+                    .execute(connection)
                     .await?;
             }
             Err(_) => {
                 query!("UPDATE activitypub_outbox_target SET retries = retries + 1 WHERE activitypub_outbox_id=$1 AND target = $2", row.outbox_id, row.target)
-                    .execute(&mut *connection)
+                    .execute(connection)
                     .await?;
             }
         };
@@ -70,7 +74,7 @@ ORDER BY t.retries, o.created_at, t.target
 }
 
 async fn send_actvity(
-    connection: &mut PgConnection,
+    connection: &PgPool,
     outbox_id: &i64,
     activity: Value,
     target: String,
@@ -90,20 +94,20 @@ async fn send_actvity(
                         let status = code.to_string();
                         let body = response.into_string().unwrap_or("--NO BODY--".into());
                         query!("INSERT INTO activitypub_delivery_log(activitypub_outbox_id, target, successful, status_code, response_body) VALUES($1, $2, false, $3, $4)", outbox_id, target, status, body)
-                    .execute(&mut *connection)
+                    .execute(connection)
                     .await?;
 
                         bail!("Request failed")
                     }
                     Ok(x) => {
                         query!("INSERT INTO activitypub_delivery_log(activitypub_outbox_id, target, successful, response_body) VALUES($1, $2, false, $3)", outbox_id, target, format!("Sending note to {}, {:#}",inbox_uri, x))
-                    .execute(&mut *connection)
+                    .execute(connection)
                     .await?;
                         bail!("Request failed")
                     }
                     Err(x) => {
                         query!("INSERT INTO activitypub_delivery_log(activitypub_outbox_id, target, successful, response_body) VALUES($1, $2, false, $3)", outbox_id, target, format!("Downcasting error {:#}",x))
-                    .execute(&mut *connection)
+                    .execute(connection)
                     .await?;
                         bail!("Request failed")
                     }
@@ -113,14 +117,14 @@ async fn send_actvity(
         }
         Err(a) => {
             query!("INSERT INTO activitypub_delivery_log(activitypub_outbox_id, target, successful, response_body) VALUES($1, $2, false, $3)", outbox_id, target, format!("Getting inbox: {:#}",a))
-                    .execute(&mut *connection)
+                    .execute(connection)
                     .await?;
             bail!(a)
         }
     }
 }
 async fn get_inbox_for_actor(
-    connection: &mut PgConnection,
+    connection: &PgPool,
     actor: String,
     inbox: Option<String>,
     settings: &Settings,
@@ -132,7 +136,7 @@ async fn get_inbox_for_actor(
                 "SELECT inbox FROM activitypub_known_actors WHERE actor=$1",
                 actor
             )
-            .fetch_optional(&mut *connection)
+            .fetch_optional(connection)
             .await?;
 
             match known_actor {

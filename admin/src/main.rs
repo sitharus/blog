@@ -134,9 +134,11 @@ async fn process_inner(
     } else {
         let pool = database::connect_db().await?;
         let session = session::session_id(&pool, &request).await?;
+        let default_site_id = "1".to_string();
+        let site_id = query.get("site").unwrap_or(&default_site_id).to_owned();
         let page_request = PageGlobals {
             query,
-            site_id: 1,
+            site_id: site_id.parse().unwrap(),
             connection_pool: pool,
             session,
         };

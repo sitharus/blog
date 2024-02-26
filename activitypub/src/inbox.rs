@@ -10,11 +10,11 @@ use shared::activities::{Activity, Create, Delete, Follow, Like, OrderedCollecti
 use shared::session::has_valid_session;
 use shared::settings::Settings;
 use sqlx::types::Json;
-use sqlx::{query, PgConnection};
+use sqlx::{query, PgPool};
 
 pub async fn inbox(
     request: &cgi::Request,
-    connection: &mut PgConnection,
+    connection: &PgPool,
     settings: &Settings,
 ) -> anyhow::Result<cgi::Response> {
     match request.method() {
@@ -33,10 +33,10 @@ pub async fn inbox(
                 "INSERT INTO activitypub_inbox(body) VALUES($1) RETURNING id",
                 body
             )
-            .fetch_one(&mut *connection)
+            .fetch_one(connection)
             .await?;
 
-            process_inbound(inserted.id, body, &mut *connection, settings).await?;
+            process_inbound(inserted.id, body, connection, settings).await?;
 
             let following: OrderedCollection<String> = OrderedCollection {
                 items: vec![],
@@ -51,7 +51,7 @@ pub async fn inbox(
 pub async fn reprocess(
     request: &cgi::Request,
     query_string: &HashMap<String, String>,
-    connection: &mut PgConnection,
+    connection: &PgPool,
     settings: &Settings,
 ) -> anyhow::Result<cgi::Response> {
     has_valid_session(connection, request).await?;
@@ -63,7 +63,7 @@ pub async fn reprocess(
         "SELECT body FROM activitypub_inbox WHERE id=$1 and processed = false",
         id
     )
-    .fetch_one(&mut *connection)
+    .fetch_one(connection)
     .await?;
 
     if let Some(body) = row.body {
@@ -76,7 +76,7 @@ pub async fn reprocess(
 async fn process_inbound(
     inbox_id: i64,
     body: Value,
-    connection: &mut PgConnection,
+    connection: &PgPool,
     settings: &Settings,
 ) -> anyhow::Result<()> {
     let activity: Result<Activity, _> = serde_json::from_value(body);
@@ -91,11 +91,11 @@ async fn process_inbound(
             }
         }
         Ok(Activity::Delete(req)) => {
-            process_delete(req, connection).await?;
+            process_delete(req, connection, settings).await?;
             mark_as_processed(inbox_id, connection).await
         }
         Ok(Activity::Undo(undo)) => {
-            process_undo(undo, connection).await?;
+            process_undo(undo, connection, settings).await?;
             mark_as_processed(inbox_id, connection).await
         }
         Ok(Activity::Create(create)) => {
@@ -116,19 +116,19 @@ async fn process_inbound(
     }
 }
 
-async fn mark_as_processed(inbox_id: i64, connection: &mut PgConnection) -> anyhow::Result<()> {
+async fn mark_as_processed(inbox_id: i64, connection: &PgPool) -> anyhow::Result<()> {
     query!(
         "UPDATE activitypub_inbox SET processed=true WHERE id=$1",
         inbox_id
     )
-    .execute(&mut *connection)
+    .execute(connection)
     .await?;
     Ok(())
 }
 
 async fn process_follow(
     req: Follow,
-    connection: &mut PgConnection,
+    connection: &PgPool,
     settings: &Settings,
 ) -> anyhow::Result<()> {
     let actor_details: Value = sign_and_call(
@@ -139,14 +139,22 @@ async fn process_follow(
 
     let inbox = actor_details["inbox"].as_str().unwrap();
 
-    query!("INSERT INTO activitypub_known_actors(is_following, actor, public_key, inbox, public_key_id) VALUES (true, $1, $2, $3, $4) ON CONFLICT(actor) DO UPDATE SET is_following=true",
+    let result = query!("INSERT INTO activitypub_known_actors(is_following, actor, public_key, inbox, public_key_id) VALUES (true, $1, $2, $3, $4) ON CONFLICT(actor) DO UPDATE SET is_following=true RETURNING id",
 		   &req.actor,
 		   actor_details["publicKey"]["publicKeyPem"].as_str(),
 		   inbox,
 		   actor_details["publicKey"]["id"].as_str()
 	)
-		.execute(&mut *connection)
-		.await?;
+    .fetch_one(connection)
+    .await?;
+
+    query!(
+        "INSERT INTO activitypub_followers(site_id, actor_id) VALUES($1, $2)",
+        settings.site_id,
+        result.id
+    )
+    .execute(connection)
+    .await?;
 
     let accept = req.accept(settings.activitypub_actor_uri());
 
@@ -159,18 +167,32 @@ async fn process_follow(
     Ok(())
 }
 
-async fn process_delete(req: Delete, connection: &mut PgConnection) -> anyhow::Result<()> {
+async fn process_delete(
+    req: Delete,
+    connection: &PgPool,
+    settings: &Settings,
+) -> anyhow::Result<()> {
     // Right now only deletes of actors supported.
-    query!(
-        "UPDATE activitypub_known_actors SET is_following=false WHERE actor=$1",
+    let maybe_actor = query!(
+        "SELECT id FROM activitypub_known_actors WHERE actor=$1",
         req.object
     )
-    .execute(connection)
+    .fetch_optional(connection)
     .await?;
+
+    if let Some(actor) = maybe_actor {
+        query!(
+            "DELETE FROM activitypub_followers WHERE actor_id=$1 AND site_id=$2",
+            actor.id,
+            settings.site_id
+        )
+        .execute(connection)
+        .await?;
+    }
     Ok(())
 }
 
-async fn is_blocked(actor: String, connection: &mut PgConnection) -> anyhow::Result<bool> {
+async fn is_blocked(actor: String, connection: &PgPool) -> anyhow::Result<bool> {
     let server = actor.split('@').last().unwrap_or("");
     let result = query!("SELECT COUNT(*) FROM activitypub_blocked WHERE (target_type = 'actor' AND target = $1) OR (target_type = 'server' AND target = $2)", actor, server)
         .fetch_optional(connection)
@@ -182,15 +204,25 @@ async fn is_blocked(actor: String, connection: &mut PgConnection) -> anyhow::Res
     })
 }
 
-async fn process_undo(undo: Undo, connection: &mut PgConnection) -> anyhow::Result<()> {
+async fn process_undo(undo: Undo, connection: &PgPool, settings: &Settings) -> anyhow::Result<()> {
     match *undo.object {
         Activity::Follow(follow) => {
-            query!(
-                "UPDATE activitypub_known_actors SET is_following=false WHERE actor=$1",
+            let maybe_actor = query!(
+                "SELECT id FROM activitypub_known_actors WHERE actor=$1",
                 follow.actor
             )
-            .execute(connection)
+            .fetch_optional(connection)
             .await?;
+
+            if let Some(actor) = maybe_actor {
+                query!(
+                    "DELETE FROM activitypub_followers WHERE actor_id=$1 AND site_id=$2",
+                    actor.id,
+                    settings.site_id
+                )
+                .execute(connection)
+                .await?;
+            }
             Ok(())
         }
         _ => bail!("Unknown undo!"),
@@ -200,19 +232,20 @@ async fn process_undo(undo: Undo, connection: &mut PgConnection) -> anyhow::Resu
 async fn process_create(
     item_id: i64,
     create: Create,
-    connection: &mut PgConnection,
+    connection: &PgPool,
     settings: &Settings,
 ) -> anyhow::Result<()> {
     match create.object() {
         Activity::Note(note) => {
             let actor = get_actor(create.actor.to_owned(), connection, settings).await?;
 
-            query!("INSERT INTO activitypub_feed (actor_id, inbox_item_id, recieved_at, message_timestamp, message, extra_data) VALUES ($1, $2, CURRENT_TIMESTAMP, $3, $4, $5)",
+            query!("INSERT INTO activitypub_feed (actor_id, inbox_item_id, recieved_at, message_timestamp, message, extra_data, site_id) VALUES ($1, $2, CURRENT_TIMESTAMP, $3, $4, $5, $6)",
 				   actor.id,
 				   item_id,
 				   note.published,
 				   note.content,
-				   Json(note) as _
+				   Json(note) as _,
+                   settings.site_id
 )
 				.execute(connection)
 				.await?;
@@ -225,7 +258,7 @@ async fn process_create(
 async fn process_like(
     item_id: i64,
     like: Like,
-    connection: &mut PgConnection,
+    connection: &PgPool,
     settings: &Settings,
 ) -> anyhow::Result<()> {
     let actor = get_actor(like.actor.to_owned(), connection, settings).await?;
@@ -233,7 +266,7 @@ async fn process_like(
         "SELECT source_post FROM activitypub_outbox WHERE activity_id=$1",
         like.object
     )
-    .fetch_optional(&mut *connection)
+    .fetch_optional(connection)
     .await?;
 
     if let Some(source) = activity {
@@ -244,7 +277,7 @@ async fn process_like(
             item_id,
             actor.id
         )
-            .execute(&mut *connection)
+            .execute(connection)
             .await?;
         }
     }

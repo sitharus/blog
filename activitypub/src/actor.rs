@@ -3,7 +3,7 @@ use cgi::http::{header, uri};
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 use shared::settings::Settings;
-use sqlx::{query, query_as, PgConnection};
+use sqlx::{query, query_as, PgPool};
 
 use crate::http_signatures::sign_and_call;
 
@@ -23,7 +23,7 @@ pub struct ActorRecord {
 
 pub async fn get_actor(
     actor_uri: String,
-    connection: &mut PgConnection,
+    connection: &PgPool,
     settings: &Settings,
 ) -> anyhow::Result<ActorRecord> {
     let actor_uri = uri_for_actor(&actor_uri)?;
@@ -34,7 +34,7 @@ pub async fn get_actor(
         "SELECT * FROM activitypub_known_actors WHERE actor=$1",
         uri_str
     )
-    .fetch_optional(&mut *connection)
+    .fetch_optional(connection)
     .await?;
     if let Some(actor) = known {
         Ok(actor)
@@ -45,7 +45,7 @@ pub async fn get_actor(
 
 pub async fn refresh_actor(
     actor_uri: String,
-    connection: &mut PgConnection,
+    connection: &PgPool,
     settings: &Settings,
 ) -> anyhow::Result<ActorRecord> {
     let actor_uri = uri_for_actor(&actor_uri)?;
@@ -56,7 +56,7 @@ pub async fn refresh_actor(
 async fn fetch_actor(
     uri_str: &str,
     actor_uri: &String,
-    connection: &mut PgConnection,
+    connection: &PgPool,
     settings: &Settings,
 ) -> anyhow::Result<ActorRecord> {
     let actor_details: Value = sign_and_call(

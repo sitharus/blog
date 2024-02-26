@@ -3,12 +3,9 @@ use std::collections::HashMap;
 use anyhow::bail;
 use chrono::Utc;
 use serde_querystring::{from_str, ParseMode};
-use sqlx::PgConnection;
+use sqlx::PgPool;
 
-pub async fn has_valid_session(
-    connection: &mut PgConnection,
-    request: &cgi::Request,
-) -> anyhow::Result<()> {
+pub async fn has_valid_session(connection: &PgPool, request: &cgi::Request) -> anyhow::Result<()> {
     let headers = request.headers();
     if !headers.contains_key(http::header::COOKIE) {
         bail!("No cookie!") // Until I update the cookie...

@@ -41,15 +41,15 @@ struct NewComment {
 async fn comment_form(query: HashMap<String, String>) -> anyhow::Result<cgi::Response> {
     let post_id_str = query.get("post_id").ok_or(anyhow!("No post id"))?;
     let post_id: i32 = post_id_str.parse()?;
-    let mut conn = database::connect_db().await?;
+    let conn = database::connect_db().await?;
     let settings_data = query!("SELECT setting_name, value FROM blog_settings")
-        .fetch_all(&mut conn)
+        .fetch_all(&conn)
         .await?;
     let settings: HashMap<String, String> =
         HashMap::from_iter(settings_data.into_iter().map(|r| (r.setting_name, r.value)));
 
     query!("SELECT id FROM posts WHERE id=$1", post_id)
-        .fetch_one(&mut conn)
+        .fetch_one(&conn)
         .await?;
 
     utils::render_html(CommentForm {
@@ -62,7 +62,7 @@ async fn comment_form(query: HashMap<String, String>) -> anyhow::Result<cgi::Res
 
 async fn post_comment(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
     let body: NewComment = utils::post_body(request)?;
-    let mut conn = database::connect_db().await?;
+    let conn = database::connect_db().await?;
 
     query!(
         "
@@ -74,12 +74,12 @@ VALUES($1, CURRENT_TIMESTAMP, $2, $3, $4)
         body.email,
         body.comment
     )
-    .execute(&mut conn)
+    .execute(&conn)
     .await?;
 
     let static_base_url =
         query!("SELECT value FROM blog_settings WHERE setting_name='static_base_url'")
-            .fetch_one(&mut conn)
+            .fetch_one(&conn)
             .await?;
 
     utils::render_html(CommentPosted {

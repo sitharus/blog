@@ -10,6 +10,7 @@ use std::{
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub enum SettingNames {
     BlogName,
+    ActorName,
     BaseUrl,
     StaticBaseUrl,
     CommentCGIUrl,
@@ -24,6 +25,7 @@ pub enum SettingNames {
     ProfileLastUpdated,
 }
 const BLOG_NAME: &str = "blog_name";
+const ACTOR_NAME: &str = "actor_name";
 const BASE_URL: &str = "base_url";
 const STATIC_BASE_URL: &str = "static_base_url";
 const COMMENT_CGI_URL: &str = "comment_cgi_url";
@@ -41,6 +43,7 @@ impl Display for SettingNames {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let name = match self {
             SettingNames::BlogName => BLOG_NAME,
+            SettingNames::ActorName => ACTOR_NAME,
             SettingNames::BaseUrl => BASE_URL,
             SettingNames::StaticBaseUrl => STATIC_BASE_URL,
             SettingNames::CommentCGIUrl => COMMENT_CGI_URL,
@@ -67,6 +70,7 @@ impl FromStr for SettingNames {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             BLOG_NAME => Ok(SettingNames::BlogName),
+            ACTOR_NAME => Ok(SettingNames::ActorName),
             BASE_URL => Ok(SettingNames::BaseUrl),
             STATIC_BASE_URL => Ok(SettingNames::StaticBaseUrl),
             COMMENT_CGI_URL => Ok(SettingNames::CommentCGIUrl),
@@ -85,6 +89,7 @@ impl FromStr for SettingNames {
 }
 
 pub struct Settings {
+    pub site_id: i32,
     pub blog_name: String,
     pub base_url: String,
     pub static_base_url: String,
@@ -103,11 +108,14 @@ pub struct Settings {
 
 impl Settings {
     pub fn activitypub_base(&self) -> String {
-        format!("https://{}/activitypub/", self.canonical_hostname)
+        format!(
+            "https://{}/activitypub/{}/",
+            self.canonical_hostname, self.actor_name
+        )
     }
 
     pub fn activitypub_actor_uri(&self) -> String {
-        format!("{}{}", self.activitypub_base(), self.actor_name)
+        format!("{}actor", self.activitypub_base())
     }
 
     pub fn activitypub_key_id(&self) -> String {
@@ -139,9 +147,14 @@ pub async fn get_settings_struct(connection: &PgPool, site_id: i32) -> anyhow::R
     let all_settings = get_settings(connection, site_id).await?;
 
     Ok(Settings {
+        site_id,
         blog_name: all_settings
             .get(&SettingNames::BlogName)
             .unwrap_or(&"My Blog".into())
+            .into(),
+        actor_name: all_settings
+            .get(&SettingNames::ActorName)
+            .unwrap_or(&"blog".into())
             .into(),
         base_url: all_settings
             .get(&SettingNames::BaseUrl)
@@ -181,7 +194,6 @@ pub async fn get_settings_struct(connection: &PgPool, site_id: i32) -> anyhow::R
             .unwrap_or(chrono_tz::UTC),
         fedi_avatar: all_settings.get(&SettingNames::FediAvatar).cloned(),
         fedi_header: all_settings.get(&SettingNames::FediHeader).cloned(),
-        actor_name: "blog".into(),
         profile_last_updated: all_settings
             .get(&SettingNames::ProfileLastUpdated)
             .and_then(|a| {

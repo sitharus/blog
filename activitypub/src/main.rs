@@ -1,17 +1,18 @@
-use actor::refresh_actor;
-use anyhow::bail;
+use anyhow::{anyhow, bail};
 use cgi::http::{header, response, Uri};
+use finger::process_finger;
 use shared::{
     activities::{Activity, Actor, OrderedCollection},
     database::connect_db,
-    session::has_valid_session,
-    settings::{get_settings_struct, Settings},
+    settings::{SettingNames, Settings},
     utils::parse_query_string,
 };
-use sqlx::{query, PgConnection};
+use sqlx::{query, PgPool};
 use std::{collections::HashMap, env};
 use tokio::runtime::Runtime;
 use utils::jsonld_response;
+
+use crate::utils::settings_for_actor;
 
 mod actor;
 mod finger;
@@ -43,53 +44,37 @@ fn main() -> Result<(), anyhow::Error> {
 }
 
 async fn cli_run() -> anyhow::Result<String> {
-    let mut connection = connect_db().await?;
-    let settings = get_settings_struct(&mut connection).await?;
-    outbox::process(&mut connection, settings).await
+    let connection = connect_db().await?;
+    outbox::process(&connection).await
 }
 
 async fn process(request: cgi::Request) -> anyhow::Result<cgi::Response> {
-    let mut connection = connect_db().await?;
+    let connection = connect_db().await?;
     let original_uri = env::var("REQUEST_URI")?.parse::<Uri>()?;
     let qstr = original_uri.query().unwrap_or("");
     let query_string: HashMap<String, String> = parse_query_string(qstr)?;
 
-    let settings = get_settings_struct(&mut connection).await?;
+    let env_vars: HashMap<String, String> = std::env::vars().collect();
+    let server_name = env_vars
+        .get("SERVER_NAME")
+        .ok_or(anyhow!("No server name?"))?;
 
     match original_uri.path() {
-        "/.well-known/host-meta" => host_meta(&settings),
+        "/.well-known/host-meta" => host_meta(&connection, server_name).await,
         "/.well-known/webfinger" => {
-            if request.method() == "GET" {
-                let resource = query_string.get("resource");
-                let account = format!(
-                    "acct:{}@{}",
-                    settings.actor_name, settings.canonical_hostname
-                );
-
-                match resource {
-                    Some(acct) if acct == &account => {
-                        let finger = finger::Finger::new(
-                            &settings.actor_name,
-                            &settings.canonical_hostname,
-                            &settings.activitypub_actor_uri(),
-                        );
-                        jrd_response(&finger)
-                    }
-
-                    _ => Ok(cgi::text_response(404, "Not found")),
-                }
-            } else {
-                Ok(cgi::text_response(400, "Bad request - only GET supported"))
-            }
+            process_finger(request, &connection, server_name, query_string).await
         }
-        "/activitypub/blog" => actor(&request, settings),
-        "/activitypub/inbox" => inbox::inbox(&request, &mut connection, &settings).await,
-        "/activitypub/inbox/reprocess" => {
-            inbox::reprocess(&request, &query_string, &mut connection, &settings).await
+        path if path.starts_with("/activitypub/") => {
+            process_activitypub_url(&connection, &request, path, server_name).await
         }
-        "/activitypub/outbox" => outbox::render(&mut connection).await,
-        "/activitypub/followers" => followers(&request, &mut connection).await,
-        "/activitypub/following" => following(&request).await,
+
+        /*
+            "/activitypub/inbox/reprocess" => {
+                inbox::reprocess(&request, &query_string, &mut connection, &settings).await
+        }
+            */
+
+        /*
         "/activitypub/refresh" => {
             has_valid_session(&mut connection, &request).await?;
             refresh_actor(
@@ -99,8 +84,47 @@ async fn process(request: cgi::Request) -> anyhow::Result<cgi::Response> {
             )
             .await?;
             Ok(cgi::text_response(200, "refreshed"))
-        }
+        }*/
         _ => Ok(cgi::text_response(404, "Not found")),
+    }
+}
+
+async fn process_activitypub_url(
+    connection: &PgPool,
+    request: &cgi::Request,
+    path: &str,
+    hostname: &str,
+) -> anyhow::Result<cgi::Response> {
+    let parts: Vec<&str> = path.split('/').collect();
+    if parts.len() < 3 || parts.len() > 4 {
+        Ok(cgi::empty_response(404))
+    } else if parts.len() == 3 {
+        let settings = settings_for_actor(connection, hostname, "blog").await?;
+        let action = if parts[2] == "blog" {
+            "actor"
+        } else {
+            parts[2]
+        };
+        process_activitypub_action(connection, request, settings, action).await
+    } else {
+        let settings = settings_for_actor(connection, hostname, parts[2]).await?;
+        process_activitypub_action(connection, request, settings, parts[3]).await
+    }
+}
+
+async fn process_activitypub_action(
+    connection: &PgPool,
+    request: &cgi::Request,
+    settings: Settings,
+    action: &str,
+) -> anyhow::Result<cgi::Response> {
+    match action {
+        "inbox" => inbox::inbox(request, connection, &settings).await,
+        "outbox" => outbox::render(connection, &settings).await,
+        "actor" => actor(request, settings),
+        "followers" => followers(request, connection, &settings).await,
+        "following" => following(request).await,
+        _ => Ok(cgi::empty_response(404)),
     }
 }
 
@@ -115,13 +139,13 @@ fn actor(request: &cgi::Request, settings: Settings) -> anyhow::Result<cgi::Resp
 
 async fn followers(
     request: &cgi::Request,
-    connection: &mut PgConnection,
+    connection: &PgPool,
+    settings: &Settings,
 ) -> anyhow::Result<cgi::Response> {
     if request.method() == "GET" {
-        let followers =
-            query!("SELECT actor FROM activitypub_known_actors WHERE is_following=true")
-                .fetch_all(connection)
-                .await?;
+        let followers = query!("SELECT actor FROM activitypub_known_actors ka INNER JOIN activitypub_followers af ON af.actor_id=ka.id WHERE af.site_id=$1", settings.site_id)
+            .fetch_all(connection)
+            .await?;
         let followers_collection: OrderedCollection<String> = OrderedCollection {
             items: followers.into_iter().map(|f| f.actor.unwrap()).collect(),
             summary: Some("Followers".into()),
@@ -157,13 +181,25 @@ where
     Ok(response)
 }
 
-fn host_meta(settings: &Settings) -> anyhow::Result<cgi::Response> {
+async fn host_meta(connection: &PgPool, host_name: &String) -> anyhow::Result<cgi::Response> {
+    let valid_sites = query!(
+        "SELECT value, site_id FROM blog_settings WHERE setting_name=$1 AND value=$2",
+        SettingNames::CanonicalHostname.to_string(),
+        host_name
+    )
+    .fetch_all(connection)
+    .await?;
+
+    if valid_sites.len() == 0 {
+        return Ok(cgi::empty_response(404));
+    }
+
     let body = format!(
         r#"<?xml version="1.0" encoding="UTF-8"?>
 <XRD xmlns="http://docs.oasis-open.org/ns/xri/xrd-1.0">
   <Link rel="lrdd" template="https://{}/.well-known/webfinger?resource={{uri}}"/>
 </XRD>"#,
-        settings.canonical_hostname
+        host_name
     );
 
     let body_content = body.as_bytes().to_vec();
