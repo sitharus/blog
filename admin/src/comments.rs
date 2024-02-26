@@ -74,5 +74,5 @@ pub async fn moderate_comment(
     )
     .execute(&globals.connection_pool)
     .await?;
-    render_redirect("comments")
+    render_redirect("comments", globals.site_id)
 }

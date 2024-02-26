@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use shared::settings::{get_settings_struct, Settings};
 use sqlx::{query, query_as};
 
@@ -15,6 +17,7 @@ pub struct Common {
     pub settings: Settings,
     pub current_site_id: i32,
     pub sites: Vec<Site>,
+    pub current_query: HashMap<String, String>,
 }
 
 pub async fn get_common<'c>(
@@ -39,5 +42,6 @@ pub async fn get_common<'c>(
         settings,
         current_site_id: globals.site_id,
         sites,
+        current_query: globals.query.clone(),
     })
 }

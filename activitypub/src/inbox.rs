@@ -1,13 +1,10 @@
-use std::collections::HashMap;
-
 use crate::actor::get_actor;
 use crate::http_signatures::{self, sign_and_call};
 use crate::utils::jsonld_response;
-use anyhow::{anyhow, bail};
+use anyhow::bail;
 use cgi::http::{header, Method};
 use serde_json::Value;
 use shared::activities::{Activity, Create, Delete, Follow, Like, OrderedCollection, Undo};
-use shared::session::has_valid_session;
 use shared::settings::Settings;
 use sqlx::types::Json;
 use sqlx::{query, PgPool};
@@ -48,6 +45,7 @@ pub async fn inbox(
     }
 }
 
+/*
 pub async fn reprocess(
     request: &cgi::Request,
     query_string: &HashMap<String, String>,
@@ -71,7 +69,7 @@ pub async fn reprocess(
     }
 
     Ok(cgi::text_response(200, "Done"))
-}
+}*/
 
 async fn process_inbound(
     inbox_id: i64,

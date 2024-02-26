@@ -43,8 +43,9 @@ pub async fn publish_posts_from_request(globals: PageGlobals) -> anyhow::Result<
         Some(_) => false,
         None => false,
     };
+    let site_id = globals.site_id;
     publish_posts(globals, push).await?;
-    render_redirect("dashboard")
+    render_redirect("dashboard", site_id)
 }
 
 pub async fn publish_posts(globals: PageGlobals, push: bool) -> anyhow::Result<()> {
@@ -144,7 +145,7 @@ pub async fn publish_profile_updates(globals: PageGlobals) -> anyhow::Result<cgi
         .await?;
     }
 
-    render_redirect("dashboard")
+    render_redirect("dashboard", globals.site_id)
 }
 
 pub async fn send(request: &cgi::Request, globals: PageGlobals) -> anyhow::Result<cgi::Response> {
@@ -205,7 +206,7 @@ pub async fn send(request: &cgi::Request, globals: PageGlobals) -> anyhow::Resul
 
             query!("INSERT INTO activitypub_outbox_target(activitypub_outbox_id, target) VALUES ($1, $2)", inserted.id, to).execute(&globals.connection_pool).await?;
 
-            render_redirect("dashboard")
+            render_redirect("dashboard", globals.site_id)
         }
         _ => bail!("Unknown method"),
     }

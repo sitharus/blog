@@ -209,7 +209,7 @@ pub async fn edit_post(
             }
         }
         if status == PostStatus::Published {
-            return render_redirect("posts");
+            return render_redirect("posts", globals.site_id);
         }
     }
     let post = sqlx::query!(

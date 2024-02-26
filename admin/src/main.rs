@@ -31,6 +31,7 @@ mod session;
 mod settings;
 mod tags;
 mod types;
+mod utils;
 
 #[derive(Template)]
 #[template(path = "index.html")]
@@ -135,10 +136,15 @@ async fn process_inner(
         let pool = database::connect_db().await?;
         let session = session::session_id(&pool, &request).await?;
         let default_site_id = "1".to_string();
-        let site_id = query.get("site").unwrap_or(&default_site_id).to_owned();
+        let site_id = query
+            .get("site")
+            .unwrap_or(&default_site_id)
+            .to_owned()
+            .parse()
+            .unwrap();
         let page_request = PageGlobals {
             query,
-            site_id: site_id.parse().unwrap(),
+            site_id,
             connection_pool: pool,
             session,
         };
@@ -148,7 +154,7 @@ async fn process_inner(
             "regenerate" => {
                 generator::regenerate_blog(&page_request).await?;
                 activitypub::publish_posts(page_request, true).await?;
-                render_redirect("dashboard")
+                render_redirect("dashboard", site_id)
             }
             "account" => account::render(&request, page_request).await,
             "settings" => settings::render(&request, page_request).await,

@@ -22,8 +22,7 @@
 						<td>{{ post.comment_count }}</td>
 						<td>{{ post.like_count }}</td>
 						<td>
-							<a href="?action=edit_post&id={{post.id}}">Edit</a>
-							<a href="?action=send_post&id={{post.id}}">Send</a>
+							<a href="{{crate::utils::link_to("edit_post", [("id", post.id)], common)}}">Edit</a>
 						</td>
 					</tr>
 				{% endfor %}

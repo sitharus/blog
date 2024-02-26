@@ -11,7 +11,7 @@
 					{% if page == current_page  %}
 						<span> {{ page }} </span>
 					{% else %}
-						<a href="?action=posts&page={{page}}&items_per_page={{items_per_page}}">
+						<a href="{{ crate::utils::link_to("posts", [("page", page),("items_per_page", items_per_page)], common) }}">
 							{{ page }}
 						</a>
 					{% endif %}
@@ -34,7 +34,7 @@
 						<td>{{ post.post_date|format_long_date }}</td>
 						<td>{{ post.state }}</td>
 						<td>
-							<a href="?action=edit_post&id={{post.id}}">Edit</a>
+							<a href="{{ crate::utils::link_to("edit_post", [("id", post.id)], common) }}">Edit</a>
 							{% if post.state == PostStatus::Preview %}
 								<a href="{{public_base_url}}?action=preview&id={{post.id}}" target="_blank">Preview</a>
 							{% endif %}

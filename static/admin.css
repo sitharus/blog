@@ -344,3 +344,45 @@ th::after {
 th:last-child::after {
 	display: none;
 }
+
+.site_select {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  padding-left: 0.3rem;
+  padding-right: 0.3rem;
+  justify-content: space-between;
+  align-items: center;
+  box-sizing: border-box;
+
+
+  & select {
+    flex: 0 0 auto;
+    appearance: none;
+    font-size: medium;
+    border-radius: 2px;
+    border: none;
+    padding: 0.5rem 0.5rem;
+    font-weight: 550;
+    font-family: "Montserrat", sans-serif;
+    box-sizing: border-box;
+    background: transparent;
+
+  }
+
+  & button {
+    display: block;
+    padding: 0rem 0.5rem;
+    background: transparent;
+    border-color: var(--primary-button-background-hover);
+    align-self: center;
+
+    & svg {
+      color: var(--link-colour);
+      width: 2rem;
+      height: 2rem;
+      filter: none;
+    }
+
+  }
+}

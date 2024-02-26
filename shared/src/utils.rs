@@ -35,11 +35,14 @@ pub fn parse_into<T: FromStr>(s: &String) -> anyhow::Result<T> {
     s.parse().map_err(|_| anyhow!("Failed to parse string"))
 }
 
-pub fn render_redirect(action: &str) -> anyhow::Result<cgi::Response> {
+pub fn render_redirect(action: &str, site_id: i32) -> anyhow::Result<cgi::Response> {
     let body: Vec<u8> = "Redirecting".as_bytes().to_vec();
     let response = http::response::Builder::new()
         .status(302)
-        .header(http::header::LOCATION, format!("?action={}", action))
+        .header(
+            http::header::LOCATION,
+            format!("?action={}&site={}", action, site_id),
+        )
         .body(body)?;
     Ok(response)
 }

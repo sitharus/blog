@@ -43,6 +43,7 @@ pub async fn get_actor(
     }
 }
 
+/*
 pub async fn refresh_actor(
     actor_uri: String,
     connection: &PgPool,
@@ -51,7 +52,7 @@ pub async fn refresh_actor(
     let actor_uri = uri_for_actor(&actor_uri)?;
     let uri_str = actor_uri.as_str();
     fetch_actor(uri_str, &actor_uri, connection, settings).await
-}
+}*/
 
 async fn fetch_actor(
     uri_str: &str,

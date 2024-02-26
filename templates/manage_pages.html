@@ -3,7 +3,7 @@
 {% block content %}
 	<h1> Pages </h1>
 	<section>
-		<a href="?action=new_page" class="button">New Page</a>
+		<a href="{{crate::utils::link("new_page", common)}}" class="button">New Page</a>
 	</section>
 
 	<section>
@@ -23,7 +23,7 @@
 						<td>{{ page.url_slug }}</td>
 						<td>{{ page.date_updated|format_long_datetime(common.settings.timezone) }}</td>
 						<td>
-							<a href="?action=edit_page&id={{page.id}}">Edit</a>
+							<a href="{{crate::utils::link_to("edit_page", [("id", page.id)], common)}}">Edit</a>
 						</td>
 					</tr>
 				{% endfor %}

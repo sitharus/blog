@@ -25,8 +25,8 @@ fn main() -> Result<(), anyhow::Error> {
     let args: Vec<String> = env::args().collect();
     let runtime = Runtime::new().unwrap();
 
-    if args.len() == 2 && args[1] == "--process-outbox" {
-        match runtime.block_on(cli_run()) {
+    if args.len() == 2 {
+        match runtime.block_on(cli_run(args)) {
             Ok(a) => {
                 println!("{}", a);
                 Ok(())
@@ -43,9 +43,12 @@ fn main() -> Result<(), anyhow::Error> {
     }
 }
 
-async fn cli_run() -> anyhow::Result<String> {
+async fn cli_run(args: Vec<String>) -> anyhow::Result<String> {
     let connection = connect_db().await?;
-    outbox::process(&connection).await
+    match args[1].as_str() {
+        "--process-outbox" => outbox::process(&connection).await,
+        _ => bail!("Unknown action"),
+    }
 }
 
 async fn process(request: cgi::Request) -> anyhow::Result<cgi::Response> {

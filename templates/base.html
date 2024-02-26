@@ -3,6 +3,10 @@
 	{%- macro isselected(item) -%}
 	{%- if common.current_page == item %}selected{% endif -%}
 	{%- endmacro -%}
+
+	{%- macro link(action) -%}
+		?action={{action}}&site={{common.current_site_id}}
+	{%- endmacro -%}
 <head>
 	<title>Blog Admin</title>
 	<link rel="stylesheet" href="/static/admin.css" type="text/css" media="screen" />
@@ -10,41 +14,55 @@
 
 <body>
 	<nav>
+		<form class="site_select">
+			{% for key in common.current_query.keys() %}
+				{% if key != "site" %}
+					{% let val = common.current_query.get(key.into()).unwrap() %}
+					<input type="hidden" name="{{key}}" value="{{val}}" />
+				{% endif %}
+			{% endfor %}
+			<select name="site">
+				{% for site in common.sites %}
+					<option value="{{site.id}}" {% if common.current_site_id == site.id %}selected{% endif %}>{{site.site_name}}</option>
+				{% endfor %}
+			</select>
+			<button type="submit">{% include "switch.svg" %}</button>
+		</form>
 		<ul>
 			<li>
-				<a href="?action=dashboard" class="{% call isselected("dashboard") %}"> {% include "dashboard.svg" %} Dashboard </a>
+				<a href="{% call link("dashboard") %}" class="{% call isselected("dashboard") %}"> {% include "dashboard.svg" %} Dashboard </a>
 			</li>
 			<li>
-				<a href="?action=new-post" class="{% call isselected("newpost") %}"> {% include "create.svg" %} New Post </a>
+				<a href="{% call link("new-post") %}" class="{% call isselected("newpost") %}"> {% include "create.svg" %} New Post </a>
 			</li>
 			<li>
-				<a href="?action=posts" class="{% call isselected("posts") %}"> {% include "article.svg" %} Manage Posts </a>
+				<a href="{% call link("manage_posts") %}" class="{% call isselected("posts") %}"> {% include "article.svg" %} Manage Posts </a>
 			</li>
 			<li>
-				<a href="?action=comments" class="{% call isselected("comments") %}"> {% include "comment.svg" %} Comments ({{common.comments_waiting}})</a>
+				<a href="{% call link("comments") %}" class="{% call isselected("comments") %}"> {% include "comment.svg" %} Comments ({{common.comments_waiting}})</a>
 			</li>
 			<li>
-				<a href="?action=activitypub_feed" class="{% call isselected("fediverse") %}"> {% include "fediverse.svg" %} Fediverse</a>
+				<a href="{% call link("activitypub_feed") %}" class="{% call isselected("fediverse") %}"> {% include "fediverse.svg" %} Fediverse</a>
 			</li>
 			<li>
-				<a href="?action=media" class="{% call isselected("media") %}"> {% include "media.svg" %} Media </a>
+				<a href="{% call link("media") %}" class="{% call isselected("media") %}"> {% include "media.svg" %} Media </a>
 			</li>
 			<li>
-				<a href="?action=manage_pages" class="{% call isselected("pages") %}"> {% include "web_page.svg" %} Pages </a>
+				<a href="{% call link("manage_pages") %}" class="{% call isselected("pages") %}"> {% include "web_page.svg" %} Pages </a>
 			</li>
 			<li>
-				<a href="?action=links" class="{% call isselected("links") %}"> {% include "link.svg" %} Links </a>
+				<a href="{% call link("links") %}" class="{% call isselected("links") %}"> {% include "link.svg" %} Links </a>
 			</li>
 			<li>
-				<a href="?action=settings" class="{% call isselected("settings") %}"> {% include "settings.svg" %} Settings </a>
+				<a href="{% call link("settings") %}" class="{% call isselected("settings") %}"> {% include "settings.svg" %} Settings </a>
 			</li>
 			<li>
-				<a href="?action=tags" class="{% call isselected("tags") %}"> {% include "tag.svg" %} Tags</a>
+				<a href="{% call link("tags") %}" class="{% call isselected("tags") %}"> {% include "tag.svg" %} Tags</a>
 			<li>
-				<a href="?action=regenerate" class="{% call isselected("regenerate") %}"> {% include "sync.svg" %} Regenerate Blog </a>
+				<a href="{% call link("regenerate") %}" class="{% call isselected("regenerate") %}"> {% include "sync.svg" %} Regenerate Blog </a>
 			</li>
 			<li>
-				<a href="?action=account" class="{% call isselected("account") %}"> {% include "account.svg" %} Account </a>
+				<a href="{% call link("account") %}" class="{% call isselected("account") %}"> {% include "account.svg" %} Account </a>
 			</li>
 		</ul>
 	</nav>
