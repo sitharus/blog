@@ -7,17 +7,19 @@
 <main>
 	<nav class="breadcrumbs" aria-label="breadcrumbs">
 		<ul>
-			<li><a href="{{common.base_url}}">Home</a></li>
-			<li>{{date.year()}}</li>
+			<li><a href="{{common.base_url|safe}}">Home</a></li>
+			<li>{{date|year}}</li>
 		</ul>
 	</nav>
 
 	<section class="archive">
-		{% for (month, posts) in posts_by_month %}
-		<h1><a href="{{common.base_url}}{{date.year()}}/{{month.name()}}/">{{month.name()}}</a></h1>
+		{% for item in posts_by_month %}
+			{% set month = item[0] %}
+			{% set posts = item[1] %}
+		<h1><a href="{{common.base_url}}{{date|year}}/{{month}}/">{{month}}</a></h1>
 		<ul class="archive_posts">
 			{% for post in posts %}
-			<li> <a href="{{post|posturl(common)}}">{{ post.title }}</a></li>
+			<li> <a href="{{post|posturl}}">{{ post.title }}</a></li>
 			{% endfor %}
 		</ul>
 		{% endfor %}

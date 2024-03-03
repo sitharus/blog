@@ -1,0 +1,41 @@
+{% macro format_post(post, before_cut) %}
+<article>
+	<header>
+		<h1><a href="{{post|posturl}}">{{ post.title }}</a></h1>
+		<div class="byline">
+			<p>
+				Posted on <time
+					datetime="{{post.post_date|format_rfc3339_date}}">{{post.post_date|format_human_date}}</time>
+				{%- if post.author_name %} by {{post.author_name}} {%- endif -%}
+			</p>
+			{%- if post.tags -%}
+			<ul class="tags">
+				{% for tag in post.tags -%}
+				<li><a href="{{common.base_url}}tags/{{tag|lower}}/">{{tag}}</a></li>
+				{%- endfor %}
+			</ul>
+			{%- endif -%}
+		</div>
+	</header>
+	{{ post.body|format_markdown(before_cut=before_cut)|safe }}
+
+	<footer>
+		<div class="greebles">
+			{% if post.song %}
+			<p class="song">
+				<img src="{{common.static_base_url}}/music.svg">
+				{{post.song}}
+			</p>
+			{% endif %}
+			{% if post.mood %}
+			<p class="mood">{{post.mood}}</p>
+			{% endif %}
+		</div>
+		<div class="links">
+			<a href="{{post|posturl}}#comments"> {{post.comment_count|default(value=0)}}
+				comment{{post.comment_count|pluralize}}
+				<a href="{{post|posturl}}">Permalink</a>
+		</div>
+	</footer>
+</article>
+{% endmacro %}

@@ -7,3 +7,19 @@ pub fn redirect_response(destination: &str) -> cgi::Response {
         .body(body)
         .unwrap()
 }
+
+pub fn css_response(content: &str) -> anyhow::Result<cgi::Response> {
+    http::response::Builder::new()
+        .status(200)
+        .header(http::header::CONTENT_TYPE, "text/css")
+        .body(content.as_bytes().to_vec())
+        .map_err(|e| anyhow::anyhow!(e))
+}
+
+pub fn font_response(content: &[u8]) -> anyhow::Result<cgi::Response> {
+    http::response::Builder::new()
+        .status(200)
+        .header(http::header::CONTENT_TYPE, "font/woff2")
+        .body(content.into())
+        .map_err(|e| anyhow::anyhow!(e))
+}

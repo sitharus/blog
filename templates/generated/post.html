@@ -1,18 +1,17 @@
 {% extends "base.html" %}
 {% import "macros.html" as macros %}
 {% block header %}
-<link href="{{post|posturl(common)}}" rel="alternative" type="application/activity+json">
+<link href="{{post|posturl}}" rel="alternative" type="application/activity+json">
 <meta content="article" property="og:type" />
 <meta content="{{post.title}}" property="og:title" />
-<meta content="{{post|posturl(common)}}" property="og:url" />
+<meta content="{{post|posturl}}" property="og:url" />
 <meta content="{{post.post_date|format_rfc3339_date}}" property="og:published_time" />
 
-{% match post.summary %}
-{% when Some with (summary) %}
-<meta content="{{summary}}" property="og:description">
-{% when None %}
-{% endmatch %}
-<meta content="summary" property="twitter:card" />
+{% if post.summary %}
+<meta content="{{post.summary}}" property="og:description">
+<meta content="{{post.summary}}" property="twitter:card" />
+{% endif %}
+
 {% endblock %}
 
 {% block body  %}
@@ -22,33 +21,33 @@
 	<main>
 		<nav class="breadcrumbs" aria-label="breadcrumbs">
 			<ul>
-				<li><a href="{{common.base_url}}">Home</a></li>
-				<li><a href="{{common.base_url}}{{post.post_date.year()}}">{{post.post_date.year()}}</a></li>
-				<li><a href="{{common.base_url}}{{post.post_date.year()}}/{{post.post_date.month()|month_name}}">{{post.post_date.month()|month_name}}</a></li>
+				<li><a href="{{common.base_url|safe}}">Home</a></li>
+				<li><a href="{{post|posturl(target="year")}}">{{post.post_date|year}}</a></li>
+				<li><a href="{{common.base_url}}{{post.post_date|year}}/{{post.post_date|month_name}}">{{post.post_date|month_name}}</a></li>
 			</ul>
 		</nav>
-		{% call macros::format_post(post, false) %}
+		{{ macros::format_post(post=post, before_cut=false) }}
 
-			<section id="comments">
-				<h1>Comments</h1>
+		<section id="comments">
+			<h1>Comments</h1>
 
-				{% for comment in comments %}
+			{% for comment in comments %}
 
-					<section class="comment">
-						<p>by {{comment.author_name}} on {{comment.created_date|format_human_datetime(common.timezone)}}</p>
-						<div>
-							{{comment.post_body|e|linebreaks|safe}}
-						</div>
-					</section>
-				{% endfor %}
+				<section class="comment">
+					<p>by {{comment.author_name}} on {{comment.created_date|format_human_datetime}}</p>
+					<div>
+						{{comment.post_body|e|linebreaks|safe}}
+					</div>
+				</section>
+			{% endfor %}
 
-				<details>
-					<summary>
-						<h1>Post a comment</h1>
-					</summary>
-					<iframe src="{{common.comment_cgi_url}}?action=comment_form&post_id={{post.id}}" class="comment-frame" loading="lazy"></iframe>
-				</details>
-			</section>
+			<details>
+				<summary>
+					<h1>Post a comment</h1>
+				</summary>
+				<iframe src="{{common.comment_cgi_url|safe}}?action=comment_form&post_id={{post.id}}" class="comment-frame" loading="lazy"></iframe>
+			</details>
+		</section>
 				
 	</main>
 {% endblock %}

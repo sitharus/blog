@@ -1,0 +1,53 @@
+<?DOCTYPE html?>
+<html>
+
+<head>
+	<title>{{common.blog_name}} - {{title}}</title>
+	<link rel="stylesheet" href="{{"blog.css"|staticurl}}" />
+	<meta content="{{common.blog_name}}" property="og:site_name" />
+	<meta name="theme-color" media="(prefers-color-scheme: light)" content="rgb(253,235,241)" />
+	<meta name="theme-color" media="(prefers-color-scheme: dark)" content="rgb(115, 34, 62)" />
+	{% block header %}{% endblock %}
+</head>
+
+<nav class="mini">
+	<a href="{{common.base_url|safe}}">Home</a>
+	<a href="#mainnav">Navigation</a>
+</nav>
+
+<body>
+	{% block body %}{% endblock %}
+</body>
+
+<nav class="sidebar" id="mainnav">
+	<section class="homenav">
+		<a href="{{common.base_url|safe}}">Home</a>
+	</section>
+	<section>
+		<h1>Pages</h1>
+		<ul>
+			{% for page in common.page_links %}
+			<li><a href="{{page.url_slug ~ ".html" | posturl}}">{{page.title}}</a></li>
+			{% endfor %}
+		</ul>
+	</section>
+	<section>
+		<h1>Archives</h1>
+		<ul>
+			{% for year in common.archive_years %}
+			<li><a href="{{common.base_url}}{{year}}/">{{year}}</a></li>
+			{% endfor %}
+		</ul>
+	</section>
+
+	<section>
+		<h1>Links</h1>
+		<ul>
+			{% for link in common.links %}
+			<li><a href="{{link.destination|safe}}">{{link.title}}</a></li>
+			{% endfor %}
+		</ul>
+	</section>
+</nav>
+
+</html>

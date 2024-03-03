@@ -3,8 +3,8 @@
 <feed xmlns="http://www.w3.org/2005/Atom">
 
 	<title>{{common.blog_name}}</title>
-	<link href="{{common.base_url}}feed.atom" rel="self" />
-	<link href="{{common.base_url}}" />
+	<link href="{{common.base_url|safe}}feed.atom" rel="self" />
+	<link href="{{common.base_url|safe}}" />
 	<id>{{common.base_url}}</id>
 	<updated>{{date|format_rfc3339_datetime}}</updated>
 
@@ -12,18 +12,15 @@
 	{% for post in posts %}
 	<entry>
 		<title>{{post.title}}</title>
-		<link rel="alternate" type="text/html" href="{{post|posturl(common)}}"/>
-		<id>{{post|posturl(common)}}</id>
+		<link rel="alternate" type="text/html" href="{{post|posturl}}"/>
+		<id>{{post|posturl}}</id>
         <published>{{post.post_date|format_rfc3339_date}}</published>
 		<updated>{{post.post_date|format_rfc3339_date}}</updated>
 		<content type="html">
-			{{post.body.clone()|format_markdown(common, false)}}
+			{{post.body|format_markdown(before_cut=false)}}
 		</content>
 		<author>
-			<name>{%- match post.author_name -%}
-				{%- when Some(name) %}{{name}}
-				{%- when None -%}
-				{%- endmatch -%}</name>
+			<name>{%- if post.author_name -%}{{post.author_name}}{%- endif -%}</name>
 		</author>
 	</entry>
 	{% endfor %}

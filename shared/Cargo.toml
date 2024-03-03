@@ -13,14 +13,17 @@ cgi = { workspace = true }
 chrono = { workspace = true }
 serde = { workspace = true }
 serde-querystring = { workspace = true }
+serde_json = { workspace = true }
 http = { workspace = true }
 ordinal = { workspace = true }
 num-traits = { workspace = true }
 pulldown-cmark = { workspace = true }
 chrono-tz = { workspace = true }
-serde_json = { workspace = true }
 ammonia = { workspace = true }
 tokio = { workspace = true }
 thiserror = { workspace = true }
 latex2mathml = { workspace = true }
 url = { workspace = true }
+tera = "1.19.1"
+
+itertools = "0.10.5"

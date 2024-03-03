@@ -1,7 +1,8 @@
 use chrono::{DateTime, NaiveDate, Utc};
+use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fmt};
 
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Serialize, Deserialize)]
 pub struct HydratedPost {
     pub id: i32,
     pub post_date: NaiveDate,
@@ -17,22 +18,26 @@ pub struct HydratedPost {
     pub site_id: i32,
 }
 
+#[derive(Serialize)]
 pub struct HydratedComment {
     pub author_name: String,
     pub created_date: DateTime<Utc>,
     pub post_body: String,
 }
 
+#[derive(Serialize)]
 pub struct Link {
     pub title: String,
     pub destination: String,
 }
 
+#[derive(Serialize)]
 pub struct PageLink {
     pub title: String,
     pub url_slug: String,
 }
 
+#[derive(Serialize)]
 pub struct CommonData {
     pub base_url: String,
     pub static_base_url: String,
@@ -43,9 +48,11 @@ pub struct CommonData {
     pub links: Vec<Link>,
     pub page_links: Vec<PageLink>,
     pub media: HashMap<i32, Media>,
+    #[serde(skip_serializing)]
     pub timezone: chrono_tz::Tz,
 }
 
+#[derive(Serialize, Clone)]
 pub struct Media {
     pub id: i32,
     pub file: String,

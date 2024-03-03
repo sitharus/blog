@@ -1,26 +1,21 @@
 use crate::database::connect_db;
-use crate::types::{
-    CommonData, HydratedComment, HydratedPost, ImageMetadata, Link, Media, PageLink,
-};
-use crate::utils::render_html;
+use crate::types::{CommonData, HydratedPost, ImageMetadata, Link, Media, PageLink};
 use anyhow::anyhow;
-use askama::Template;
 use cgi::text_response;
 use chrono::{Datelike, Utc};
 use sqlx::PgPool;
 use sqlx::{query, query_as, types::Json};
 use std::collections::HashMap;
 pub mod activitypub;
+pub mod feeds;
 pub mod filters;
-
-#[derive(Template)]
-#[template(path = "generated/post.html")]
-struct PostPage<'a> {
-    title: &'a String,
-    post: &'a HydratedPost,
-    common: &'a CommonData,
-    comments: Vec<HydratedComment>,
-}
+pub mod index;
+pub mod month_index;
+pub mod pages;
+pub mod posts;
+pub mod templates;
+pub mod types;
+pub mod year_index;
 
 pub async fn external_preview(id: i32) -> anyhow::Result<cgi::Response> {
     let connection = connect_db().await?;
@@ -52,7 +47,10 @@ AND posts.id=$1
     .await?;
 
     match maybe_post {
-        Some(post) => {
+        Some(_post) => {
+            Ok(text_response(200, "Currently broken"))
+
+            /*
             let common = get_common(&connection, post.site_id).await?;
             let post_page = PostPage {
                 title: &post.title,
@@ -61,7 +59,7 @@ AND posts.id=$1
                 comments: [].into(),
             };
 
-            render_html(post_page)
+            render_html(post_page)*/
         }
         _ => Ok(text_response(404, "404 Not Found")),
     }

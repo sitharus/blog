@@ -1,18 +1,18 @@
 @font-face {
   font-family: "Playfair Display";
-  src: url("PlayfairDisplay-VariableFont_wght.woff2") format("woff2");
+  src: url("?action=font&name=PlayfairDisplay-VariableFont_wght.woff2") format("woff2");
 }
 
 
 @font-face {
   font-family: "Montserrat";
-  src: url("Montserrat-VariableFont_wght.woff2") format("woff2");
+  src: url("?action=font&name=Montserrat-VariableFont_wght.woff2") format("woff2");
 }
 
 @font-face {
   font-family: "Montserrat";
   font-style: italic;
-  src: url("Montserrat-Italic-VariableFont_wght.woff2") format("woff2");
+  src: url("?action=font&name=Montserrat-Italic-VariableFont_wght.woff2") format("woff2");
 }
 
 .rgba-primary-0 { color: rgba(122,115,159,1) }	/* Main Primary color */

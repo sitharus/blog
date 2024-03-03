@@ -2,7 +2,7 @@
 <rss version="2.0">
   <channel>
 	<title>{{common.blog_name}}</title>
-	<link>{{common.base_url}}</link>
+	<link>{{common.base_url|safe}}</link>
 	<description></description>
 	<generator>A tangle of Rust</generator>
 	<pubDate>{{date|format_rfc2822_datetime}}</pubDate>
@@ -10,9 +10,9 @@
 	{% for post in posts %}
 	<item>
 		<title>{{post.title}}</title>
-		<link>{{post|posturl(common)}}</link>
+		<link>{{post|posturl}}</link>
 		<pubDate>{{post.post_date|format_rfc2822_date}}</pubDate>
-		<description>{{post.body.clone()|format_markdown(common, false)}}</description>
+		<description>{{post.body|format_markdown(before_cut=false)}}</description>
 	</item>
 	{% endfor %}
   </channel>
