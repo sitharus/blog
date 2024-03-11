@@ -34,6 +34,7 @@ struct LogLine<'a> {
     response_size: i32,
     referrer: Option<&'a str>,
     user_agent: Option<&'a str>,
+    source_file: &'a str,
 }
 
 fn main() {
@@ -46,10 +47,10 @@ async fn parse_file(args: Options) {
     let mut connection = PgConnection::connect(&args.connection_string)
         .await
         .unwrap();
-    let lines = read_lines(args.source_file).expect("Could not open file!");
+    let lines = read_lines(args.source_file.clone()).expect("Could not open file!");
     for maybe_line in lines {
         if let Ok(line) = maybe_line {
-            parse_line(line, &mut connection).await;
+            parse_line(line, args.source_file.clone(), &mut connection).await;
         }
     }
 }
@@ -61,7 +62,7 @@ lazy_static! {
     .expect("Could not parse regex");
 }
 
-async fn parse_line(line: String, connection: &mut PgConnection) {
+async fn parse_line(line: String, source_file: String, connection: &mut PgConnection) {
     if let Some(parts) = LOG_PARSE.captures(&line) {
         let path = parts.get(6).unwrap().as_str();
         if path.ends_with(".html") {
@@ -90,14 +91,15 @@ async fn parse_line(line: String, connection: &mut PgConnection) {
                 response_size,
                 referrer: none_if_dash(parts.get(10)),
                 user_agent: none_if_dash(parts.get(11)),
+                source_file: source_file.as_str(),
             };
 
             query!(
                 r"
-INSERT INTO raw_access_logs(source_ip, ident, user_id, date_time, method, path, protocol, response_code, response_size, referrer, user_agent)
-VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+INSERT INTO raw_access_logs(source_ip, ident, user_id, date_time, method, path, protocol, response_code, response_size, referrer, user_agent, source_file)
+VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 ON CONFLICT (source_ip, date_time, path) DO NOTHING
-", line.source_ip, line.identd, line.user_id, line.date_time, line.method, line.path, line.protocol, line.response_code, line.response_size, line.referrer, line.user_agent
+", line.source_ip, line.identd, line.user_id, line.date_time, line.method, line.path, line.protocol, line.response_code, line.response_size, line.referrer, line.user_agent, line.source_file
             ).execute(connection).await.unwrap();
 
             println!("{:?}", line);
