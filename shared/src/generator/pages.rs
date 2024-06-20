@@ -40,3 +40,28 @@ pub async fn generate_pages<'a>(generator: &Generator<'a>) -> anyhow::Result<()>
     }
     Ok(())
 }
+
+pub async fn generate_single_page<'a>(
+    id: i32,
+    generator: &Generator<'a>,
+) -> anyhow::Result<String> {
+    let page = query!(
+        "SELECT title, url_slug, body, date_updated FROM pages WHERE site_id=$1 and id = $2",
+        generator.site_id,
+        id
+    )
+    .fetch_one(generator.pool)
+    .await?;
+
+    let page_context = Page {
+        common: generator.common,
+        title: page.title,
+        body: page.body,
+        last_updated: page.date_updated,
+    };
+    let result = generator
+        .tera
+        .render("page.html", &Context::from_serialize(page_context)?)?;
+
+    Ok(result)
+}

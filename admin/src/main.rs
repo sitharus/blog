@@ -28,6 +28,7 @@ mod links;
 mod media;
 mod page;
 mod post;
+mod prepublished;
 mod response;
 mod session;
 mod settings;
@@ -204,6 +205,7 @@ async fn process_inner(
                 "send_post" => activitypub::send(&request, page_request).await,
                 "activitypub_feed" => activitypub::feed(page_request).await,
                 "tags" => tags::render(&request, page_request).await,
+                "prepublished" => prepublished::prepublished(&request, page_request).await,
                 _ => do_404().await,
             }
         }

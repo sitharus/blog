@@ -166,7 +166,6 @@ pub fn format_rfc2822_datetime(
 }
 
 fn month_name(in_date_time: &Value, _args: &HashMap<String, Value>) -> tera::Result<Value> {
-    eprintln!("month: {:?}", in_date_time);
     match in_date_time {
         Value::Number(_) => from_value::<i32>(in_date_time.clone())
             .map_err(tera::Error::from)
@@ -186,7 +185,6 @@ fn month_name(in_date_time: &Value, _args: &HashMap<String, Value>) -> tera::Res
 }
 
 fn year(in_date_time: &Value, _args: &HashMap<String, Value>) -> tera::Result<Value> {
-    eprint!("{:?}", in_date_time);
     from_value::<NaiveDate>(in_date_time.clone())
         .map_err(tera::Error::from)
         .map(|m| m.year())
