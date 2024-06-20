@@ -37,7 +37,10 @@ fn main() -> Result<(), anyhow::Error> {
         Ok(cgi::handle(|request: cgi::Request| -> cgi::Response {
             match runtime.block_on(process(request)) {
                 Ok(a) => a,
-                Err(_) => cgi::text_response(500, "Internal server error"),
+                Err(e) => {
+                    eprintln!("CGI Error: {:?}", e);
+                    cgi::text_response(500, "Internal server error")
+                }
             }
         }))
     }
