@@ -25,8 +25,9 @@ struct Settings {
     common: Common,
     settings: SettingsStruct,
 }
-const STRING_FIELDS: [&'static str; 11] = [
+const STRING_FIELDS: [&'static str; 12] = [
     "blog_name",
+    "actor_name",
     "base_url",
     "timezone",
     "comment_cgi_url",
