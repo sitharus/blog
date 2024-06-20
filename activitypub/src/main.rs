@@ -91,7 +91,10 @@ async fn process(request: cgi::Request) -> anyhow::Result<cgi::Response> {
             .await?;
             Ok(cgi::text_response(200, "refreshed"))
         }*/
-        _ => Ok(cgi::text_response(404, "Not found")),
+        _ => {
+            eprintln!("Could not find handler for {}", original_uri.path());
+            Ok(cgi::text_response(404, "Not found"))
+        }
     }
 }
 
