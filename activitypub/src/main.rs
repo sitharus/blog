@@ -93,7 +93,8 @@ async fn process(request: cgi::Request) -> anyhow::Result<cgi::Response> {
         }*/
         _ => {
             eprintln!("Could not find handler for {}", original_uri.path());
-            Ok(cgi::text_response(404, "Not found"))
+            let msg = format!("Not found {}", original_uri.path());
+            Ok(cgi::text_response(404, msg))
         }
     }
 }
