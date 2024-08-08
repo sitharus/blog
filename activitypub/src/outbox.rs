@@ -11,7 +11,7 @@ use crate::{actor::get_actor, http_signatures, utils::jsonld_response};
 
 pub async fn render(connection: &PgPool, settings: &Settings) -> anyhow::Result<cgi::Response> {
     let contents = query!(
-        "SELECT activity FROM activitypub_outbox WHERE site_id=$1 ORDER BY created_at DESC",
+        "SELECT id, activity FROM activitypub_outbox WHERE site_id=$1 ORDER BY created_at DESC",
         settings.site_id
     )
     .fetch_all(connection)
@@ -21,7 +21,10 @@ pub async fn render(connection: &PgPool, settings: &Settings) -> anyhow::Result<
         summary: Some("Outbox".into()),
         items: contents
             .into_iter()
-            .map(|i| serde_json::from_value::<Activity>(i.activity).unwrap())
+            .map(|i| {
+                serde_json::from_value::<Activity>(i.activity)
+                    .expect(format!("Not an activity: {:?}", i.id).as_str())
+            })
             .collect(),
     };
 
