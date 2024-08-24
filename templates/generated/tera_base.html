@@ -23,6 +23,7 @@
 	<section class="homenav">
 		<a href="{{common.base_url|safe}}">Home</a>
 	</section>
+	{% if common.page_links | length > 0 %}
 	<section>
 		<h1>Pages</h1>
 		<ul>
@@ -31,6 +32,7 @@
 			{% endfor %}
 		</ul>
 	</section>
+	{% endif %}
 	<section>
 		<h1>Archives</h1>
 		<ul>
@@ -40,6 +42,7 @@
 		</ul>
 	</section>
 
+	{% if common.links | length > 0 %}
 	<section>
 		<h1>Links</h1>
 		<ul>
@@ -48,6 +51,7 @@
 			{% endfor %}
 		</ul>
 	</section>
+	{% endif %}
 </nav>
 
 </html>
