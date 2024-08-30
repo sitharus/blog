@@ -29,7 +29,24 @@ pub async fn settings_for_actor(
                         hostname,
                         SettingNames::ActorName.to_string(),
                         actor_name
-    ).fetch_one(connection).await?;
+    ).fetch_one(connection).await
+        .map_err(|e| {
+            anyhow::anyhow!(
+                "While looking up actor {} for host {} got {:?}",
+                actor_name,
+                hostname,
+                e
+            )
+        })?;
 
-    get_settings_struct(connection, target.site_id).await
+    get_settings_struct(connection, target.site_id)
+        .await
+        .map_err(|e| {
+            anyhow::anyhow!(
+                "While looking up actor {} for host {} got {:?}",
+                actor_name,
+                hostname,
+                e
+            )
+        })
 }
