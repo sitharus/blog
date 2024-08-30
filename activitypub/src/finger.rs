@@ -51,7 +51,7 @@ pub async fn process_finger(
                 if actor_host.len() != 2 || actor_host[1] != server_name {
                     return Ok(cgi::empty_response(400));
                 }
-                let settings = settings_for_actor(connection, actor_host[0], actor_host[1]).await?;
+                let settings = settings_for_actor(connection, actor_host[1], actor_host[0]).await?;
 
                 let finger = Finger::new(
                     &settings.actor_name,
