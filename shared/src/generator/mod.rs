@@ -1,11 +1,15 @@
 use crate::database::connect_db;
 use crate::types::{CommonData, HydratedPost, ImageMetadata, Link, Media, PageLink};
+use crate::utils::render_html;
 use anyhow::anyhow;
-use cgi::text_response;
+use cgi::{html_response, text_response};
 use chrono::{Datelike, Utc};
+use posts::generate_post_html;
 use sqlx::PgPool;
 use sqlx::{query, query_as, types::Json};
 use std::collections::HashMap;
+use templates::load_templates;
+use types::Generator;
 pub mod activitypub;
 pub mod feeds;
 pub mod filters;
@@ -47,19 +51,20 @@ AND posts.id=$1
     .await?;
 
     match maybe_post {
-        Some(_post) => {
-            Ok(text_response(200, "Currently broken"))
-
-            /*
+        Some(post) => {
             let common = get_common(&connection, post.site_id).await?;
-            let post_page = PostPage {
-                title: &post.title,
-                post: &post,
-                common: &common,
-                comments: [].into(),
-            };
+            let tera = load_templates(&common)?;
 
-            render_html(post_page)*/
+            let gen = Generator {
+                output_path: "",
+                pool: &connection,
+                common: &common,
+                tera: &tera,
+                site_id: post.site_id,
+            };
+            let html = generate_post_html(&gen, &post).await?;
+
+            Ok(html_response(200, html))
         }
         _ => Ok(text_response(404, "404 Not Found")),
     }
