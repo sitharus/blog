@@ -5,7 +5,7 @@ use chrono_tz::Tz;
 use latex2mathml::{latex_to_mathml, DisplayStyle};
 use num_traits::FromPrimitive;
 use ordinal::Ordinal;
-use pulldown_cmark::{Event, Options, Parser, Tag};
+use pulldown_cmark::{CodeBlockKind, Event, Options, Parser, Tag};
 use serde_json::{from_value, Value};
 use tera::{Filter, Tera};
 
@@ -279,6 +279,13 @@ fn format_markdown(
 
                 Event::Text("".into())
             }
+            Tag::CodeBlock(CodeBlockKind::Fenced(lang)) if !lang.is_empty() => Event::Html(
+                format!(
+                    "<pre class=\"fenced-code language-{}\"><code class=\"language-{}>",
+                    lang, lang
+                )
+                .into(),
+            ),
             _ => event,
         },
         Event::Code(code) if code.starts_with("$$") && code.ends_with("$$") => {
@@ -297,6 +304,9 @@ fn format_markdown(
                 current_image = String::new();
                 in_image = false;
                 Event::Html(tag.into())
+            }
+            Tag::CodeBlock(CodeBlockKind::Fenced(lang)) if !lang.is_empty() => {
+                Event::Html("</code></pre>>".into())
             }
             _ => event,
         },
