@@ -281,7 +281,7 @@ fn format_markdown(
             }
             Tag::CodeBlock(CodeBlockKind::Fenced(lang)) if !lang.is_empty() => Event::Html(
                 format!(
-                    "<pre class=\"fenced-code language-{}\"><code class=\"language-{}>",
+                    "<pre class=\"fenced-code language-{}\"><code class=\"language-{}\">",
                     lang, lang
                 )
                 .into(),
@@ -306,7 +306,7 @@ fn format_markdown(
                 Event::Html(tag.into())
             }
             Tag::CodeBlock(CodeBlockKind::Fenced(lang)) if !lang.is_empty() => {
-                Event::Html("</code></pre>>".into())
+                Event::Html("</code></pre>".into())
             }
             _ => event,
         },
