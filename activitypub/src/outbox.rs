@@ -7,7 +7,11 @@ use shared::{
 };
 use sqlx::{query, PgPool};
 
-use crate::{actor::get_actor, http_signatures, utils::jsonld_response};
+use crate::{
+    actor::get_actor,
+    http_signatures,
+    utils::{format_activitypub_url, jsonld_response},
+};
 
 pub async fn render(connection: &PgPool, settings: &Settings) -> anyhow::Result<cgi::Response> {
     let contents = query!(
@@ -18,6 +22,7 @@ pub async fn render(connection: &PgPool, settings: &Settings) -> anyhow::Result<
     .await?;
 
     let outbox: OrderedCollection<Activity> = OrderedCollection {
+        id: Some(format_activitypub_url("outbox", settings)),
         summary: Some("Outbox".into()),
         items: contents
             .into_iter()

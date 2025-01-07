@@ -10,7 +10,7 @@ use shared::{
 use sqlx::{query, PgPool};
 use std::{collections::HashMap, env};
 use tokio::runtime::Runtime;
-use utils::jsonld_response;
+use utils::{format_activitypub_url, jsonld_response};
 
 use crate::utils::settings_for_actor;
 
@@ -73,24 +73,6 @@ async fn process(request: cgi::Request) -> anyhow::Result<cgi::Response> {
         path if path.starts_with("/activitypub/") => {
             process_activitypub_url(&connection, &request, path, server_name).await
         }
-
-        /*
-            "/activitypub/inbox/reprocess" => {
-                inbox::reprocess(&request, &query_string, &mut connection, &settings).await
-        }
-            */
-
-        /*
-        "/activitypub/refresh" => {
-            has_valid_session(&mut connection, &request).await?;
-            refresh_actor(
-                query_string.get("actor_uri").unwrap().to_string(),
-                &mut connection,
-                &settings,
-            )
-            .await?;
-            Ok(cgi::text_response(200, "refreshed"))
-        }*/
         _ => {
             eprintln!("Could not find handler for {}", original_uri.path());
             let msg = format!("Not found {}", original_uri.path());
@@ -133,7 +115,7 @@ async fn process_activitypub_action(
         "outbox" => outbox::render(connection, &settings).await,
         "actor" => actor(request, settings),
         "followers" => followers(request, connection, &settings).await,
-        "following" => following(request).await,
+        "following" => following(request, &settings).await,
         _ => Ok(cgi::empty_response(404)),
     }
 }
@@ -158,7 +140,8 @@ async fn followers(
             .await?;
         let followers_collection: OrderedCollection<String> = OrderedCollection {
             items: followers.into_iter().map(|f| f.actor.unwrap()).collect(),
-            summary: Some("Followers".into()),
+            summary: Some("followers".into()),
+            id: Some(format_activitypub_url("followers", settings)),
         };
         jsonld_response(&followers_collection)
     } else {
@@ -166,11 +149,12 @@ async fn followers(
     }
 }
 
-async fn following(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
+async fn following(request: &cgi::Request, settings: &Settings) -> anyhow::Result<cgi::Response> {
     if request.method() == "GET" {
         let following: OrderedCollection<String> = OrderedCollection {
             items: vec![],
             summary: Some("Following".into()),
+            id: Some(format_activitypub_url("following", settings)),
         };
         jsonld_response(&following)
     } else {
@@ -226,26 +210,3 @@ async fn host_meta(connection: &PgPool, host_name: &String) -> anyhow::Result<cg
         )
         .body(body_content)?)
 }
-
-/*
-OrderedCollection:
-
-
-{
-  "@context": "https://www.w3.org/ns/activitystreams",
-  "summary": "Sally's notes",
-  "type": "OrderedCollection",
-  "totalItems": 2,
-  "orderedItems": [
-    {
-      "type": "Note",
-      "name": "A Simple Note"
-    },
-    {
-      "type": "Note",
-      "name": "Another Simple Note"
-    }
-  ]
-}
-
-*/

@@ -1,13 +1,24 @@
 use crate::actor::get_actor;
-use crate::http_signatures::{self, sign_and_call};
+use crate::http_signatures::{self, sign_and_call, validate};
 use crate::utils::jsonld_response;
 use anyhow::bail;
 use cgi::http::{header, Method};
 use serde_json::Value;
-use shared::activities::{Activity, Create, Delete, Follow, Like, OrderedCollection, Undo};
+use shared::activities::{Activity, Create, Delete, Follow, Like, Note, OrderedCollection, Undo};
 use shared::settings::Settings;
 use sqlx::types::Json;
-use sqlx::{query, PgPool};
+use sqlx::{query, query_as, PgPool};
+
+struct InboxItem {
+    message: Option<String>,
+    post_id: i32,
+    received_at: Option<chrono::DateTime<chrono::Utc>>,
+    item_id: Option<String>,
+    to: Option<Value>,
+    cc: Option<Value>,
+    actor: Option<String>,
+    object: Option<String>,
+}
 
 pub async fn inbox(
     request: &cgi::Request,
@@ -16,15 +27,66 @@ pub async fn inbox(
 ) -> anyhow::Result<cgi::Response> {
     match request.method() {
         &Method::GET => {
-            let inbox: OrderedCollection<String> = OrderedCollection {
-                items: vec![],
+            let items: Vec<Activity> = match validate(request, connection, settings).await {
+                Ok(key) => {
+                    let items =
+                        query_as!(InboxItem,
+                                 "SELECT af.message, al.post_id, ai.received_at, ai.body->>'id' AS item_id, ai.body->'to' AS to , ai.body->'cc' AS cc, ai.body->>'actor' AS actor, ai.body->>'object' AS object
+FROM activitypub_known_actors a
+LEFT JOIN activitypub_feed af
+ON af.actor_id = a.id
+LEFT JOIN activitypub_likes al
+ON al.actor_id = a.id
+LEFT JOIN activitypub_inbox ai ON ai.id IN (af.inbox_item_id, al.inbox_item_id)
+WHERE a.public_key_id=$1
+ORDER BY ai.received_at DESC
+",
+                        key
+                    )
+                        .fetch_all(connection)
+                        .await?;
+
+                    items
+                        .into_iter()
+                        .filter_map(|i| match i {
+                            InboxItem {
+                                message: Some(message),
+                                item_id: Some(item_id),
+                                received_at: Some(received_at),
+                                to: Some(to),
+                                cc,
+                                ..
+                            } => Some(Activity::Note(Note::new(
+                                message,
+                                item_id,
+                                received_at,
+                                serde_json::from_value(to).unwrap_or(vec![]),
+                                cc.and_then(|c| serde_json::from_value(c).ok())
+                                    .unwrap_or(vec![]),
+                            ))),
+                            InboxItem {
+                                message: None,
+                                post_id,
+                                actor: Some(actor),
+                                object: Some(object),
+                                ..
+                            } if post_id > 0 => Some(Activity::Like(Like { actor, object })),
+                            _ => None,
+                        })
+                        .collect()
+                }
+                _ => vec![],
+            };
+            let inbox: OrderedCollection<Activity> = OrderedCollection {
+                items,
                 summary: Some("inbox".into()),
+                id: None,
             };
             jsonld_response(&inbox)
         }
         &Method::POST => {
             let body: Value = serde_json::from_slice(request.body())?;
-            http_signatures::validate(request).await?;
+            http_signatures::validate(request, connection, settings).await?;
 
             let inserted = query!(
                 "INSERT INTO activitypub_inbox(body) VALUES($1) RETURNING id",
@@ -38,38 +100,13 @@ pub async fn inbox(
             let following: OrderedCollection<String> = OrderedCollection {
                 items: vec![],
                 summary: Some("inbox".into()),
+                id: None,
             };
             jsonld_response(&following)
         }
         _ => Ok(cgi::text_response(405, "Bad request - only GET supported")),
     }
 }
-
-/*
-pub async fn reprocess(
-    request: &cgi::Request,
-    query_string: &HashMap<String, String>,
-    connection: &PgPool,
-    settings: &Settings,
-) -> anyhow::Result<cgi::Response> {
-    has_valid_session(connection, request).await?;
-    let id_str = query_string
-        .get("id")
-        .ok_or(anyhow!("Id must be supplied"))?;
-    let id: i64 = id_str.parse()?;
-    let row = query!(
-        "SELECT body FROM activitypub_inbox WHERE id=$1 and processed = false",
-        id
-    )
-    .fetch_one(connection)
-    .await?;
-
-    if let Some(body) = row.body {
-        process_inbound(id, body, connection, settings).await?;
-    }
-
-    Ok(cgi::text_response(200, "Done"))
-}*/
 
 async fn process_inbound(
     inbox_id: i64,

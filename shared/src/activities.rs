@@ -12,6 +12,7 @@ pub struct OrderedCollection<T>
 where
     T: Serialize + Clone,
 {
+    pub id: Option<String>,
     pub summary: Option<String>,
     pub items: Vec<T>,
 }
@@ -22,6 +23,7 @@ struct OrderedCollectionJsonLD<T>
 where
     T: Serialize + Clone,
 {
+    #[serde(rename = "@context")]
     context: String,
     summary: Option<String>,
     #[serde(rename = "type")]
@@ -121,7 +123,7 @@ pub struct Note {
 }
 
 impl Note {
-    fn new(
+    pub fn new(
         content: String,
         id: String,
         published: chrono::DateTime<Utc>,

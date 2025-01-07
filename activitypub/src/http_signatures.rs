@@ -1,25 +1,103 @@
+use anyhow::{anyhow, bail};
 use base64::{engine::general_purpose, Engine as _};
 use cgi::http::header;
 use rand;
 use rsa::{
-    pkcs1::DecodeRsaPrivateKey,
-    pkcs1v15::SigningKey,
+    pkcs1::{DecodeRsaPrivateKey, DecodeRsaPublicKey},
+    pkcs1v15::{self, SigningKey, VerifyingKey},
     sha2::{Digest, Sha256},
-    signature::{RandomizedSigner, SignatureEncoding},
+    signature::{RandomizedSigner, SignatureEncoding, Verifier},
     RsaPrivateKey,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use shared::settings::Settings;
+use sqlx::{query, PgPool};
 use ureq::{Request, Response};
 
-pub async fn validate(request: &cgi::Request) -> anyhow::Result<bool> {
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SignatureHeader {
+    key_id: String,
+    algorithm: String,
+    headers: Option<String>,
+    signature: String,
+}
+
+pub async fn validate(
+    request: &cgi::Request,
+    connection: &PgPool,
+    settings: &Settings,
+) -> anyhow::Result<String> {
     let signature = request.headers().get("Signature");
     let digest = request.headers().get("Digest");
+    match signature {
+        Some(signature) => {
+            let sig: SignatureHeader = serde_querystring::from_bytes(
+                signature.as_bytes(),
+                serde_querystring::ParseMode::UrlEncoded,
+            )?;
 
-    if signature.is_none() || (!request.body().is_empty() && digest.is_none()) {
-        Ok(false)
-    } else {
-        Ok(true)
+            if sig.algorithm != "rsa-sha256" {
+                bail!("Algorithm {} not supported", sig.algorithm);
+            }
+            let digest_str: Option<String> =
+                digest.and_then(|d| d.to_str().ok()).map(|s| s.to_string());
+
+            let computed_digest = match digest {
+                Some(_) => {
+                    let body = request.body();
+                    let digest = Sha256::digest(&body);
+                    Some(format!(
+                        "SHA-256={}",
+                        general_purpose::STANDARD.encode(digest)
+                    ))
+                }
+                None => None,
+            };
+            if computed_digest != digest_str {
+                bail!("Digest does not match")
+            }
+
+            let public_key =
+                get_or_update_actor_public_key(&sig.key_id, connection, settings).await?;
+            let verifying_key = VerifyingKey::<Sha256>::from_pkcs1_pem(&public_key)?;
+
+            let signature_parts: Vec<String> = sig
+                .headers
+                .unwrap_or("date".to_string())
+                .split(" ")
+                .map(|header| match header.to_ascii_lowercase().as_str() {
+                    "(request-target)" => format!(
+                        "{}: {} {}",
+                        header,
+                        request.method().as_str(),
+                        request.uri().path()
+                    ),
+                    "digest" => format!("{}: {}", header, digest_str.clone().unwrap_or_default()),
+
+                    _ => {
+                        let header_text = request.headers().get(header);
+                        format!(
+                            "{}: {}",
+                            header,
+                            header_text
+                                .and_then(|f| f.to_str().ok())
+                                .unwrap_or_default()
+                        )
+                    }
+                })
+                .collect();
+            let signing_string = signature_parts.join("\n");
+            let decoded_signature: pkcs1v15::Signature = general_purpose::STANDARD
+                .decode(sig.signature)?
+                .as_slice()
+                .try_into()?;
+
+            verifying_key.verify(signing_string.as_bytes(), &decoded_signature.into())?;
+            Ok(sig.key_id)
+        }
+        _ => bail!("Signature not present"),
     }
 }
 
@@ -97,4 +175,44 @@ pub fn sign_and_call(request: Request, settings: &Settings) -> anyhow::Result<Re
         .set(header::DATE.as_str(), &date.to_owned())
         .set("Signature", &signature_header)
         .call()?)
+}
+
+async fn get_or_update_actor_public_key(
+    actor_or_key_id: &str,
+    connection: &PgPool,
+    settings: &Settings,
+) -> anyhow::Result<String> {
+    let maybe_existing = query!(
+        "SELECT public_key FROm activitypub_known_actors WHERE public_key_id=$1 OR actor=$1",
+        actor_or_key_id
+    )
+    .fetch_optional(connection)
+    .await?;
+    match maybe_existing {
+        Some(existing) if existing.public_key.is_some() => {
+            Ok(existing.public_key.unwrap_or_default())
+        }
+        _ => {
+            let actor_details: Value = sign_and_call(
+                ureq::get(actor_or_key_id)
+                    .set(header::ACCEPT.as_str(), "application/activity+json"),
+                settings,
+            )?
+            .into_json()?;
+
+            let inbox = actor_details["inbox"].as_str().unwrap();
+
+            let result = query!(
+                "INSERT INTO activitypub_known_actors(is_following, actor, public_key, inbox, public_key_id) VALUES (true, $1, $2, $3, $4) ON CONFLICT(actor) DO UPDATE SET is_following=true, public_key=$2, public_key_id=$4 RETURNING id, public_key",
+                actor_details["id"].as_str(),
+                actor_details["publicKey"]["publicKeyPem"].as_str(),
+                inbox,
+                actor_details["publicKey"]["id"].as_str()
+            )
+            .fetch_one(connection)
+            .await?;
+
+            result.public_key.ok_or(anyhow!("Key not found!"))
+        }
+    }
 }
