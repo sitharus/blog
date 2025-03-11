@@ -1,0 +1,27 @@
+
+{% extends "base.html" %}
+
+{% block content %}
+	<h1>Templates</h1>
+	<table>
+		<thead>
+			<tr>
+				<th>Template</th>
+				<th>Customised</th>
+				<th>Last Edit</th>
+				<th/>
+			</tr>
+		</thead>
+		<tbody>
+			{% for item in templates %}
+				<tr>
+					<th>{{ item.name  }}</th>
+					<td>{% if item.customised %}Yes{% else %}No{% endif %}</td>
+					<td>{% match item.last_edit %}{% when Some(date) %}{{date|format_long_datetime(common.settings.timezone)}}{% when None %} {% endmatch %}</td>
+					<td><a href="?action=edit_template&site={{common.current_site_id}}&template_name={{item.name}}"><img src="?action=image&img=edit"></a></td>
+				</tr>
+			{% endfor %}
+		</tbody>
+	</table>
+
+{% endblock %}

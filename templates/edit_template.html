@@ -1,0 +1,16 @@
+
+{% extends "base.html" %}
+
+{% block content %}
+	<h1>Edit Template {{kind}}</h1>
+
+	<form method="POST">
+		<input type="hidden" name="kind" value="{{kind}}">
+		<textarea name="content" width="180" height="50">{{content}}</textarea>
+
+		<div class="button-bar">
+			<button type="submit">Save</button>
+		</div>
+	</form>
+
+{% endblock %}

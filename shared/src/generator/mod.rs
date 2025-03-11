@@ -1,6 +1,5 @@
 use crate::database::connect_db;
 use crate::types::{CommonData, HydratedPost, ImageMetadata, Link, Media, PageLink};
-use crate::utils::render_html;
 use anyhow::anyhow;
 use cgi::{html_response, text_response};
 use chrono::{Datelike, Utc};
@@ -53,7 +52,7 @@ AND posts.id=$1
     match maybe_post {
         Some(post) => {
             let common = get_common(&connection, post.site_id).await?;
-            let tera = load_templates(&common)?;
+            let tera = load_templates(&connection, post.site_id, &common).await?;
 
             let gen = Generator {
                 output_path: "",

@@ -32,7 +32,7 @@ struct CommentPosted {
 #[derive(serde::Deserialize)]
 struct NewComment {
     post_id: i32,
-    unique_id: String,
+    _unique_id: String,
     name: String,
     email: String,
     comment: String,

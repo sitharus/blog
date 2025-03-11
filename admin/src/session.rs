@@ -6,7 +6,9 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 pub struct Session {
+    #[allow(dead_code)]
     pub id: Uuid,
+    #[warn(dead_code)]
     pub user_id: i32,
     pub expiry: DateTime<Utc>,
 }

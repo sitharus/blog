@@ -7,6 +7,7 @@ use num_traits::FromPrimitive;
 use ordinal::Ordinal;
 use pulldown_cmark::{CodeBlockKind, Event, Options, Parser, Tag};
 use serde_json::{from_value, Value};
+use sqlx::PgPool;
 use tera::{Filter, Tera};
 
 use crate::types::{CommonData, HydratedPost, Media};
@@ -20,16 +21,71 @@ pub static YEAR_INDEX: &str = include_str!("../../../templates/generated/year_in
 pub static RSS: &str = include_str!("../../../templates/generated/feed.xml");
 pub static ATOM: &str = include_str!("../../../templates/generated/atom.xml");
 
-pub fn load_templates(common: &CommonData) -> anyhow::Result<Tera> {
+pub struct TemplateInfo {
+    pub custom_path: Option<String>,
+    pub can_customise_path: bool,
+    pub contents: String,
+}
+
+impl TemplateInfo {
+    fn create_from_default(contents: String) -> TemplateInfo {
+        TemplateInfo {
+            custom_path: None,
+            can_customise_path: false,
+            contents,
+        }
+    }
+}
+
+static TEMPLATE_MAP: [(&str, &str, &str); 8] = [
+    ("base", "base.html", BASE),
+    ("macros", "macros.html", MACROS),
+    ("posts", "post.html", POST),
+    ("index", "index.html", INDEX),
+    ("month_index", "month_index.html", MONTH_INDEX),
+    ("year_index", "year_index.html", YEAR_INDEX),
+    ("atom", "atom.xml", ATOM),
+    ("rss", "rss.xml", RSS),
+];
+
+pub fn default_templates() -> HashMap<String, TemplateInfo> {
+    let mut templates = HashMap::new();
+    for (name, _, template) in TEMPLATE_MAP {
+        templates.insert(
+            name.into(),
+            TemplateInfo::create_from_default(template.into()),
+        );
+    }
+    return templates;
+}
+
+pub async fn load_templates(
+    database: &PgPool,
+    site_id: i32,
+    common: &CommonData,
+) -> anyhow::Result<Tera> {
+    let templates = sqlx::query!(
+        "SELECT template_kind, content FROM templates WHERE site_id=$1",
+        site_id
+    )
+    .fetch_all(database)
+    .await?;
+    let lookup: HashMap<String, String> = templates
+        .into_iter()
+        .map(|r| (r.template_kind, r.content))
+        .collect();
+
     let mut tera = Tera::default();
-    tera.add_raw_template("macros.html", MACROS)?;
-    tera.add_raw_template("base.html", BASE)?;
-    tera.add_raw_template("post.html", POST)?;
-    tera.add_raw_template("index.html", INDEX)?;
-    tera.add_raw_template("month_index.html", MONTH_INDEX)?;
-    tera.add_raw_template("year_index.html", YEAR_INDEX)?;
-    tera.add_raw_template("atom.xml", ATOM)?;
-    tera.add_raw_template("rss.xml", RSS)?;
+
+    for (name, filename, default_template) in TEMPLATE_MAP {
+        tera.add_raw_template(
+            filename,
+            lookup
+                .get(name)
+                .map(|c| c.as_str())
+                .unwrap_or(default_template),
+        )?;
+    }
 
     let base_url = common.base_url.clone();
     let tz = common.timezone.clone();

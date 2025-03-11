@@ -20,6 +20,7 @@ pub enum AdminMenuPages {
     Media,
     Fediverse,
     Tags,
+    Templates,
 }
 impl fmt::Display for AdminMenuPages {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -35,6 +36,7 @@ impl fmt::Display for AdminMenuPages {
             AdminMenuPages::Media => write!(f, "media"),
             AdminMenuPages::Fediverse => write!(f, "fediverse"),
             AdminMenuPages::Tags => write!(f, "tags"),
+            AdminMenuPages::Templates => write!(f, "templates"),
         }
     }
 }

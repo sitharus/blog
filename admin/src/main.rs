@@ -33,6 +33,7 @@ mod response;
 mod session;
 mod settings;
 mod tags;
+mod templates;
 mod types;
 mod utils;
 
@@ -206,6 +207,9 @@ async fn process_inner(
                 "activitypub_feed" => activitypub::feed(page_request).await,
                 "tags" => tags::render(&request, page_request).await,
                 "prepublished" => prepublished::prepublished(&request, page_request).await,
+                "templates" => templates::templates(&request, page_request).await,
+                "image" => image(page_request),
+                "edit_template" => templates::edit_template(&request, page_request).await,
                 _ => do_404().await,
             }
         }
@@ -238,6 +242,20 @@ fn redirect_session_error(e: anyhow::Error) -> anyhow::Result<cgi::Response> {
         Ok(resp)
     } else {
         Err(e)
+    }
+}
+
+pub static EDIT: &str = include_str!("../../templates/edit.svg");
+fn image(globals: PageGlobals) -> anyhow::Result<cgi::Response> {
+    match globals.query.get("img") {
+        Some(x) if x == "edit" => {
+            let resp = http::response::Builder::new()
+                .status(200)
+                .header(http::header::CONTENT_TYPE, "image/svg+xml")
+                .body(EDIT.as_bytes().to_vec())?;
+            Ok(resp)
+        }
+        _ => bail!("Not a valid image"),
     }
 }
 

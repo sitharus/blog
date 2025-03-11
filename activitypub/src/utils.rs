@@ -1,9 +1,6 @@
-use anyhow::anyhow;
 use cgi::http::{header, response};
 use shared::settings::{get_settings_struct, SettingNames, Settings};
 use sqlx::{query, PgPool};
-
-use crate::http_signatures::sign_and_call;
 
 pub fn jsonld_response<T>(content: &T) -> anyhow::Result<cgi::Response>
 where

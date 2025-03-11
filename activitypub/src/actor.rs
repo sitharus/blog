@@ -7,6 +7,9 @@ use sqlx::{query, query_as, PgPool};
 
 use crate::http_signatures::sign_and_call;
 
+// This is from activitypub, the fields are needed for proper
+// mapping even though they're not used.
+#[allow(dead_code)]
 pub struct ActorRecord {
     pub id: i64,
     pub first_seen: Option<DateTime<Utc>>,
@@ -20,6 +23,7 @@ pub struct ActorRecord {
     pub server: Option<String>,
     pub raw_actor_data: Option<Value>,
 }
+#[warn(dead_code)]
 
 pub async fn get_actor(
     actor_uri: String,

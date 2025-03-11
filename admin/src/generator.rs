@@ -58,7 +58,7 @@ pub async fn preview_page(
         site_id: globals.site_id,
     };
 
-    let tera = load_templates(&common)?;
+    let tera = load_templates(&globals.connection_pool, globals.site_id, &common).await?;
 
     let gen = Generator {
         output_path: "",
@@ -109,7 +109,7 @@ ORDER BY post_date DESC
     }
 
     let common = get_common(&globals.connection_pool, globals.site_id).await?;
-    let tera = load_templates(&common)?;
+    let tera = load_templates(&globals.connection_pool, globals.site_id, &common).await?;
     let gen = Generator {
         output_path: &output_path,
         pool: &globals.connection_pool,

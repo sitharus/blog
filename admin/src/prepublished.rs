@@ -10,7 +10,7 @@ use sqlx::query_as;
 use crate::types::PageGlobals;
 
 pub async fn prepublished(
-    request: &cgi::Request,
+    _request: &cgi::Request,
     globals: PageGlobals,
 ) -> anyhow::Result<cgi::Response> {
     let kind = globals.query.get("kind").ok_or(anyhow!("No target"))?;
@@ -28,7 +28,7 @@ async fn page(globals: PageGlobals) -> anyhow::Result<cgi::Response> {
         .ok_or(anyhow!("No ID"))
         .and_then(parse_into)?;
     let common = get_common(&globals.connection_pool, globals.site_id).await?;
-    let tera = load_templates(&common)?;
+    let tera = load_templates(&globals.connection_pool, globals.site_id, &common).await?;
 
     let gen = Generator {
         output_path: "",
@@ -44,7 +44,7 @@ async fn page(globals: PageGlobals) -> anyhow::Result<cgi::Response> {
 }
 
 async fn index(globals: PageGlobals) -> anyhow::Result<cgi::Response> {
-    let posts = query_as!(
+    let _posts = query_as!(
         HydratedPost,
         r#"
 SELECT
