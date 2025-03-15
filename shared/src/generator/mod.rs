@@ -16,6 +16,7 @@ pub mod index;
 pub mod month_index;
 pub mod pages;
 pub mod posts;
+pub mod static_content;
 pub mod templates;
 pub mod types;
 pub mod year_index;

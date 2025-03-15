@@ -6,11 +6,14 @@ use shared::generator::index::{generate_index_pages, generate_tag_indexes};
 use shared::generator::month_index::generate_month_index_pages;
 use shared::generator::pages::generate_pages;
 use shared::generator::posts::{generate_post_html, generate_post_page};
+use shared::generator::static_content::generate_static;
 use shared::generator::templates::load_templates;
 use shared::generator::types::Generator;
 use shared::generator::year_index::generate_year_index_pages;
 use shared::types::HydratedPost;
 use shared::utils::post_body;
+
+use tokio::fs::{create_dir, try_exists};
 
 use sqlx::{query, query_as};
 use std::env;
@@ -76,6 +79,11 @@ pub async fn regenerate_blog(globals: &PageGlobals) -> anyhow::Result<cgi::Respo
     let output_path_base =
         env::var("BLOG_OUTPUT_PATH").expect("Environment variable BLOG_OUTPUT_PATH is required");
     let output_path = format!("{}/{}", output_path_base, globals.site_id);
+    let static_output_path = format!("{}/{}", output_path, "static");
+
+    if !(try_exists(&static_output_path).await?) {
+        create_dir(&static_output_path).await?;
+    }
 
     let posts = query_as!(
         HydratedPost,
@@ -134,6 +142,7 @@ ORDER BY post_date DESC
     generate_atom_feed(&posts, &gen).await?;
     generate_tag_indexes(&posts, &gen).await?;
     generate_pages(&gen).await?;
+    generate_static(&gen, &static_output_path).await?;
 
     Ok(redirect_response("dashboard"))
 }

@@ -8,7 +8,7 @@ use ordinal::Ordinal;
 use pulldown_cmark::{CodeBlockKind, Event, Options, Parser, Tag};
 use serde_json::{from_value, Value};
 use sqlx::PgPool;
-use tera::{Filter, Tera};
+use tera::{Filter, Function, Tera};
 
 use crate::types::{CommonData, HydratedPost, Media};
 
@@ -20,6 +20,7 @@ pub static MONTH_INDEX: &str = include_str!("../../../templates/generated/month_
 pub static YEAR_INDEX: &str = include_str!("../../../templates/generated/year_index.html");
 pub static RSS: &str = include_str!("../../../templates/generated/feed.xml");
 pub static ATOM: &str = include_str!("../../../templates/generated/atom.xml");
+pub static CSS: &str = include_str!("../../../templates/generated/blog.css");
 
 pub struct TemplateInfo {
     pub custom_path: Option<String>,
@@ -37,7 +38,7 @@ impl TemplateInfo {
     }
 }
 
-static TEMPLATE_MAP: [(&str, &str, &str); 8] = [
+static TEMPLATE_MAP: [(&str, &str, &str); 9] = [
     ("base", "base.html", BASE),
     ("macros", "macros.html", MACROS),
     ("posts", "post.html", POST),
@@ -46,6 +47,7 @@ static TEMPLATE_MAP: [(&str, &str, &str); 8] = [
     ("year_index", "year_index.html", YEAR_INDEX),
     ("atom", "atom.xml", ATOM),
     ("rss", "rss.xml", RSS),
+    ("css", "blog.css", CSS),
 ];
 
 pub fn default_templates() -> HashMap<String, TemplateInfo> {
@@ -174,6 +176,16 @@ impl Filter for BuildUrl {
 
     fn is_safe(&self) -> bool {
         true
+    }
+}
+
+impl Function for BuildUrl {
+    fn call(&self, args: &HashMap<String, Value>) -> tera::Result<Value> {
+        Ok(Value::String("".into()))
+    }
+
+    fn is_safe(&self) -> bool {
+        false
     }
 }
 
