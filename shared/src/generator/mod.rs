@@ -59,7 +59,7 @@ AND posts.id=$1
                 output_path: "",
                 pool: &connection,
                 common: &common,
-                tera: &tera,
+                tera,
                 site_id: post.site_id,
             };
             let html = generate_post_html(&gen, &post).await?;

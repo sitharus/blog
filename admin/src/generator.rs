@@ -10,7 +10,7 @@ use shared::generator::static_content::generate_static;
 use shared::generator::templates::load_templates;
 use shared::generator::types::Generator;
 use shared::generator::year_index::generate_year_index_pages;
-use shared::types::HydratedPost;
+use shared::types::{CommonData, HydratedPost};
 use shared::utils::post_body;
 
 use tokio::fs::{create_dir, try_exists};
@@ -67,7 +67,7 @@ pub async fn preview_page(
         output_path: "",
         pool: &globals.connection_pool,
         common: &common,
-        tera: &tera,
+        tera,
         site_id: globals.site_id,
     };
     let post_page = generate_post_html(&gen, &post).await?;
@@ -75,16 +75,12 @@ pub async fn preview_page(
     Ok(cgi::html_response(200, post_page))
 }
 
-pub async fn regenerate_blog(globals: &PageGlobals) -> anyhow::Result<cgi::Response> {
-    let output_path_base =
-        env::var("BLOG_OUTPUT_PATH").expect("Environment variable BLOG_OUTPUT_PATH is required");
-    let output_path = format!("{}/{}", output_path_base, globals.site_id);
-    let static_output_path = format!("{}/{}", output_path, "static");
+pub struct PageContent {
+    pub posts: Vec<HydratedPost>,
+    pub common: CommonData,
+}
 
-    if !(try_exists(&static_output_path).await?) {
-        create_dir(&static_output_path).await?;
-    }
-
+pub async fn get_content(globals: &PageGlobals) -> anyhow::Result<PageContent> {
     let posts = query_as!(
         HydratedPost,
         r#"
@@ -112,17 +108,32 @@ ORDER BY post_date DESC
     .fetch_all(&globals.connection_pool)
     .await?;
 
+    let common = get_common(&globals.connection_pool, globals.site_id).await?;
+
+    Ok(PageContent { posts, common })
+}
+
+pub async fn regenerate_blog(globals: &PageGlobals) -> anyhow::Result<cgi::Response> {
+    let output_path_base =
+        env::var("BLOG_OUTPUT_PATH").expect("Environment variable BLOG_OUTPUT_PATH is required");
+    let output_path = format!("{}/{}", output_path_base, globals.site_id);
+    let static_output_path = format!("{}/{}", output_path, "static");
+
+    if !(try_exists(&static_output_path).await?) {
+        create_dir(&static_output_path).await?;
+    }
+
+    let PageContent { posts, common } = get_content(globals).await?;
     if posts.len() == 0 {
         return Ok(redirect_response("dashboard"));
     }
 
-    let common = get_common(&globals.connection_pool, globals.site_id).await?;
     let tera = load_templates(&globals.connection_pool, globals.site_id, &common).await?;
     let gen = Generator {
         output_path: &output_path,
         pool: &globals.connection_pool,
         common: &common,
-        tera: &tera,
+        tera,
         site_id: globals.site_id,
     };
 

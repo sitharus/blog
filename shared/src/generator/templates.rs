@@ -93,7 +93,8 @@ pub async fn load_templates(
     let tz = common.timezone.clone();
     let media_base_url = common.media_base_url.clone();
     let media = common.media.clone();
-    let post_url = BuildUrl::new(base_url);
+    let post_url = BuildUrl::new(base_url.clone());
+    let site_url = BuildUrl::new(base_url);
     let static_url = BuildUrl::new(common.static_base_url.clone());
 
     tera.register_filter("posturl", post_url);
@@ -116,6 +117,8 @@ pub async fn load_templates(
             format_markdown(v, args, &media_base_url, &media)
         },
     );
+
+    tera.register_function("buildurl", site_url);
 
     return Ok(tera);
 }
@@ -181,7 +184,11 @@ impl Filter for BuildUrl {
 
 impl Function for BuildUrl {
     fn call(&self, args: &HashMap<String, Value>) -> tera::Result<Value> {
-        Ok(Value::String("".into()))
+        if let Some(static_url) = args.get("static") {
+            Ok(Value::String(format!("{}/{}", self.base_url, static_url)))
+        } else {
+            Err(tera::Error::msg("Unsupported URL request"))
+        }
     }
 
     fn is_safe(&self) -> bool {

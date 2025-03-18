@@ -24,6 +24,6 @@ tokio = { workspace = true }
 thiserror = { workspace = true }
 latex2mathml = { workspace = true }
 url = { workspace = true }
-tera = "1.19.1"
+tera = { workspace = true }
 
 itertools = "0.10.5"

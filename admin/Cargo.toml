@@ -22,6 +22,7 @@ ammonia = { workspace = true }
 lazy_static = { workspace = true }
 uuid = { workspace = true }
 chrono-tz = { workspace = true }
+tera = { workspace = true }
 
 bcrypt = "0.14.0"
 itertools = "0.10.5"

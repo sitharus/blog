@@ -12,3 +12,21 @@ pub async fn generate_static<'a>(
     file.write_all(rendered.as_bytes()).await?;
     Ok(())
 }
+
+pub struct StaticContent {
+    pub content: String,
+    pub content_type: String,
+}
+
+pub async fn get_static_content(
+    generator: &Generator<'_>,
+    content: &str,
+) -> anyhow::Result<StaticContent> {
+    match content {
+        "blog.css" => Ok(StaticContent {
+            content: generator.tera.render("blog.css", &Context::new())?,
+            content_type: "text/css".into(),
+        }),
+        _ => anyhow::bail!("Unknown static content!"),
+    }
+}

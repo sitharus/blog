@@ -28,6 +28,26 @@ pub async fn generate_index_pages<'a>(
     generate_pages(posts, generator, generator.output_path).await
 }
 
+pub fn index_content<'a>(
+    posts: Vec<&HydratedPost>,
+    generator: &Generator<'a>,
+    page_number: i32,
+    total_pages: i32,
+) -> anyhow::Result<String> {
+    let page = IndexPage {
+        title: &generator.common.blog_name,
+        posts,
+        common: &generator.common,
+        page: page_number,
+        total_pages,
+    };
+
+    let result = generator
+        .tera
+        .render("index.html", &Context::from_serialize(page)?)?;
+    Ok(result)
+}
+
 async fn generate_pages<'a>(
     posts: IntoIter<&HydratedPost>,
     generator: &Generator<'a>,
@@ -40,18 +60,9 @@ async fn generate_pages<'a>(
         } else {
             format!("index{}.html", pos + 1)
         };
+        let posts = chunk.collect();
 
-        let page = IndexPage {
-            title: &generator.common.blog_name,
-            posts: chunk.collect(),
-            common: &generator.common,
-            page: pos as i32 + 1,
-            total_pages,
-        };
-
-        let rendered = generator
-            .tera
-            .render("index.html", &Context::from_serialize(page)?)?;
+        let rendered = index_content(posts, generator, pos as i32 + 1, total_pages)?;
         let mut file = File::create(format!("{}/{}", output_path, path)).await?;
         file.write_all(rendered.as_bytes()).await?;
     }
