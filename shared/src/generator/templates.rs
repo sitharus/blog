@@ -186,6 +186,16 @@ impl Function for BuildUrl {
     fn call(&self, args: &HashMap<String, Value>) -> tera::Result<Value> {
         if let Some(static_url) = args.get("static") {
             Ok(Value::String(format!("{}/{}", self.base_url, static_url)))
+        } else if let Some(_) = args.get("home") {
+            Ok(Value::String(format!("{}/", self.base_url)))
+        } else if let Some(page) = args.get("page") {
+            match page {
+                Value::Object(page_obj) => match page_obj.get("url_slug") {
+                    Some(slug) => Ok(Value::String(format!("{}/{}", self.base_url, slug))),
+                    _ => Err(tera::Error::msg("Not a page")),
+                },
+                _ => Err(tera::Error::msg("Not a page")),
+            }
         } else {
             Err(tera::Error::msg("Unsupported URL request"))
         }

@@ -130,7 +130,7 @@ RETURNING id"#,
                     .await?;
                 }
             }
-            Ok(response::redirect_response("dashboard"))
+            Ok(response::redirect_response("dashboard", globals.site_id))
         } else {
             let content = NewPost {
                 common,

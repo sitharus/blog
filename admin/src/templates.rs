@@ -1,5 +1,7 @@
+use anyhow::bail;
 use askama::Template;
 use chrono::{DateTime, Utc};
+use itertools::Itertools;
 use serde::Deserialize;
 use shared::generator::templates::default_templates;
 use shared::utils::{post_body, render_html};
@@ -34,6 +36,14 @@ struct EditTemplate {
     content: String,
 }
 
+#[derive(Template)]
+#[template(path = "delete_template.html")]
+struct DeleteTemplate {
+    common: Common,
+    name: String,
+    id: i32,
+}
+
 pub async fn templates(
     _request: &cgi::Request,
     globals: PageGlobals,
@@ -41,7 +51,7 @@ pub async fn templates(
     let common = get_common(&globals, crate::types::AdminMenuPages::Templates).await?;
     let default_templates = default_templates();
     let customised = sqlx::query!(
-        "SELECT id, template_kind, sys_period FROM templates WHERE site_id=$1",
+        "SELECT id, template_kind, sys_period FROM templates WHERE site_id=$1 ORDER BY template_kind",
         globals.site_id,
     )
     .fetch_all(&globals.connection_pool)
@@ -57,6 +67,7 @@ pub async fn templates(
                 last_edit: custom.and_then(|c| bound_option(c.sys_period.start)),
             }
         })
+        .sorted_by(|a, b| Ord::cmp(a.name, b.name))
         .collect();
     render_html(TemplatesList { common, templates })
 }
@@ -94,7 +105,7 @@ ON CONFLICT (site_id, template_kind) DO UPDATE SET created_by=$2, content=$4
         )
         .execute(&globals.connection_pool)
         .await?;
-        Ok(response::redirect_response("templates"))
+        Ok(response::redirect_response("templates", globals.site_id))
     } else {
         let template_name = globals
             .query
@@ -122,5 +133,51 @@ ON CONFLICT (site_id, template_kind) DO UPDATE SET created_by=$2, content=$4
             kind: template_name.to_string(),
             content: template,
         })
+    }
+}
+
+#[derive(Deserialize)]
+struct TemplateDelete {
+    id: i32,
+}
+
+pub async fn delete_template(
+    request: &cgi::Request,
+    globals: PageGlobals,
+) -> anyhow::Result<cgi::Response> {
+    if request.method() == "POST" {
+        let body: TemplateDelete = post_body(request)?;
+        sqlx::query!(
+            "DELETE FROM templates WHERE id=$1 AND site_id=$2",
+            body.id,
+            globals.site_id
+        )
+        .execute(&globals.connection_pool)
+        .await?;
+
+        Ok(response::redirect_response("templates", globals.site_id))
+    } else {
+        let template_name = globals.query.get("template_name");
+        match template_name {
+            Some(name) => {
+                let data = sqlx::query!(
+                    "SELECT id, template_kind FROM templates WHERE template_kind=$1 AND site_id=$2",
+                    name,
+                    globals.site_id
+                )
+                .fetch_optional(&globals.connection_pool)
+                .await?;
+                match data {
+                    Some(row) => render_html(DeleteTemplate {
+                        common: get_common(&globals, crate::types::AdminMenuPages::Templates)
+                            .await?,
+                        name: row.template_kind,
+                        id: row.id,
+                    }),
+                    None => bail!("bad request"),
+                }
+            }
+            None => bail!("Bad request"),
+        }
     }
 }

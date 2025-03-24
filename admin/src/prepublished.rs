@@ -139,6 +139,19 @@ impl Function for SiteUrlBuilder {
                 ))),
                 _ => Err(tera::Error::msg("Static url must be a string")),
             }
+        } else if let Some(_) = args.get("home") {
+            Ok(Value::String("?action=prepublished&kind=index".into()))
+        } else if let Some(page) = args.get("page") {
+            match page {
+                Value::Object(page_obj) => match page_obj.get("url_slug") {
+                    Some(slug) => Ok(Value::String(format!(
+                        "?action=prepublished&kind=page&slug={}",
+                        slug
+                    ))),
+                    _ => Err(tera::Error::msg("Not a page")),
+                },
+                _ => Err(tera::Error::msg("Not a page")),
+            }
         } else {
             Err(tera::Error::msg("Unsupported url builder"))
         }

@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Delete Template</h1>
+
+<p>Are you sure you want to delete template {{name}}?</p>
+
+<form method="GET" id="cancel_form" action="?">
+	<input type="hidden" name="action" value="templates">
+	<input type="hidden" name="site" value="{{common.current_site_id}}">
+</form>
+
+<form method="POST" id="delete_form">
+	<input type="hidden" name="id" value="{{id}}">
+</form>
+<div class="button-bar">
+	<button type="submit" form="cancel_form">Cancel</button>
+	<button type="submit" form="delete_form">Delete</button>
+</div>
+
+{% endblock %}

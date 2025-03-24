@@ -210,6 +210,7 @@ async fn process_inner(
                 "templates" => templates::templates(&request, page_request).await,
                 "image" => image(page_request),
                 "edit_template" => templates::edit_template(&request, page_request).await,
+                "delete_template" => templates::delete_template(&request, page_request).await,
                 _ => do_404().await,
             }
         }
@@ -245,16 +246,20 @@ fn redirect_session_error(e: anyhow::Error) -> anyhow::Result<cgi::Response> {
     }
 }
 
+fn svg_response(svg: &str) -> anyhow::Result<cgi::Response> {
+    let resp = http::response::Builder::new()
+        .status(200)
+        .header(http::header::CONTENT_TYPE, "image/svg+xml")
+        .body(svg.as_bytes().to_vec())?;
+    Ok(resp)
+}
+
 pub static EDIT: &str = include_str!("../../templates/edit.svg");
+pub static DELETE: &str = include_str!("../../templates/delete.svg");
 fn image(globals: PageGlobals) -> anyhow::Result<cgi::Response> {
     match globals.query.get("img") {
-        Some(x) if x == "edit" => {
-            let resp = http::response::Builder::new()
-                .status(200)
-                .header(http::header::CONTENT_TYPE, "image/svg+xml")
-                .body(EDIT.as_bytes().to_vec())?;
-            Ok(resp)
-        }
+        Some(x) if x == "edit" => svg_response(EDIT),
+        Some(x) if x == "delete" => svg_response(DELETE),
         _ => bail!("Not a valid image"),
     }
 }

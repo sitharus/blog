@@ -101,7 +101,9 @@ VALUES ($1, current_timestamp,  $2, $3, $4, $5)
         .await;
 
         match result {
-            Ok(x) if x.rows_affected() == 1 => Ok(response::redirect_response("manage_pages")),
+            Ok(x) if x.rows_affected() == 1 => {
+                Ok(response::redirect_response("manage_pages", globals.site_id))
+            }
             _ => render_html(NewPage {
                 common,
                 title: req.title,
@@ -145,7 +147,9 @@ pub async fn edit_post(
         .await;
 
         match response {
-            Ok(x) if x.rows_affected() == 1 => Ok(response::redirect_response("manage_pages")),
+            Ok(x) if x.rows_affected() == 1 => {
+                Ok(response::redirect_response("manage_pages", globals.site_id))
+            }
             _ => render_html(EditPage {
                 common,
                 title: req.title,

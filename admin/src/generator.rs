@@ -125,7 +125,7 @@ pub async fn regenerate_blog(globals: &PageGlobals) -> anyhow::Result<cgi::Respo
 
     let PageContent { posts, common } = get_content(globals).await?;
     if posts.len() == 0 {
-        return Ok(redirect_response("dashboard"));
+        return Ok(redirect_response("dashboard", globals.site_id));
     }
 
     let tera = load_templates(&globals.connection_pool, globals.site_id, &common).await?;
@@ -155,5 +155,5 @@ pub async fn regenerate_blog(globals: &PageGlobals) -> anyhow::Result<cgi::Respo
     generate_pages(&gen).await?;
     generate_static(&gen, &static_output_path).await?;
 
-    Ok(redirect_response("dashboard"))
+    Ok(redirect_response("dashboard", globals.site_id))
 }
