@@ -11,7 +11,6 @@ use templates::load_templates;
 use types::Generator;
 pub mod activitypub;
 pub mod feeds;
-pub mod filters;
 pub mod index;
 pub mod month_index;
 pub mod pages;
