@@ -18,7 +18,7 @@
 				{% for post in recent_posts %}
 					<tr>
 						<td>{{ post.title }}</td>
-						<td>{{ post.post_date|format_long_date }}</td>
+						<td>{{ post.post_date|format_long_date(common.settings.timezone) }}</td>
 						<td>{{ post.comment_count }}</td>
 						<td>{{ post.like_count }}</td>
 						<td>

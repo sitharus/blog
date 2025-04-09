@@ -45,8 +45,8 @@ pub async fn generate_month_index_pages<'a>(
         let mut month_posts: Vec<&HydratedPost> = posts
             .iter()
             .filter(|p| {
-                p.post_date.year() == current_date.year()
-                    && p.post_date.month() == current_date.month()
+                let post_date = p.post_date.with_timezone(&generator.common.timezone);
+                post_date.year() == current_date.year() && post_date.month() == current_date.month()
             })
             .collect();
         month_posts.sort_by(|a, b| a.post_date.cmp(&b.post_date));

@@ -1,7 +1,7 @@
 use core::fmt;
 use std::collections::HashMap;
 
-use chrono::NaiveDate;
+use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use shared::types::PostStatus;
 use sqlx::PgPool;
@@ -52,7 +52,7 @@ impl PartialEq<&str> for AdminMenuPages {
 pub struct PostRequest {
     pub title: String,
     pub body: String,
-    pub date: NaiveDate,
+    pub date: DateTime<Utc>,
     pub status: PostStatus,
     pub slug: String,
     pub song: Option<String>,

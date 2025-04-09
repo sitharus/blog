@@ -14,6 +14,7 @@ pub fn posturl(post: &HydratedPost, common: &CommonData) -> ::askama::Result<Str
     blog_post_url(
         post.url_slug.clone(),
         post.post_date,
+        common.timezone,
         common.base_url.clone(),
     )
 }

@@ -65,7 +65,12 @@ pub async fn publish_posts(globals: PageGlobals, push: bool) -> anyhow::Result<(
     let settings = get_settings_struct(&globals.connection_pool, globals.site_id).await?;
 
     for post in to_post {
-        let post_url = blog_post_url(post.url_slug, post.post_date, settings.base_url.clone())?;
+        let post_url = blog_post_url(
+            post.url_slug,
+            post.post_date,
+            settings.timezone,
+            settings.base_url.clone(),
+        )?;
 
         let summary = post.summary.unwrap_or("New post!".into());
         let content = format!(
@@ -75,7 +80,7 @@ pub async fn publish_posts(globals: PageGlobals, push: bool) -> anyhow::Result<(
         let note = Activity::note(
             content,
             post_url.clone(),
-            Utc::now(),
+            post.post_date,
             vec![activities::PUBLIC_TIMELINE.into()],
             vec![],
         );
@@ -166,7 +171,12 @@ pub async fn send(request: &cgi::Request, globals: PageGlobals) -> anyhow::Resul
             .fetch_one(&globals.connection_pool)
             .await?;
 
-            let post_url = blog_post_url(post.url_slug, post.post_date, settings.base_url)?;
+            let post_url = blog_post_url(
+                post.url_slug,
+                post.post_date,
+                settings.timezone,
+                settings.base_url,
+            )?;
             render_html(SendPage {
                 message: format!(r#"Check out <a href="{}">{}</a>"#, post_url, post.title),
                 common,

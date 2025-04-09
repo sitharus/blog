@@ -1,11 +1,11 @@
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fmt};
 
 #[derive(PartialEq, Clone, Serialize, Deserialize)]
 pub struct HydratedPost {
     pub id: i32,
-    pub post_date: NaiveDate,
+    pub post_date: DateTime<Utc>,
     pub url_slug: String,
     pub title: String,
     pub body: String,
@@ -95,7 +95,7 @@ pub enum CommentStatus {
 pub struct Post {
     pub id: i32,
     pub author_id: i32,
-    pub post_date: chrono::NaiveDate,
+    pub post_date: DateTime<Utc>,
     pub created_date: DateTime<Utc>,
     pub updated_date: DateTime<Utc>,
     pub state: PostStatus,

@@ -37,7 +37,9 @@ pub async fn generate_year_index_pages<'a>(
         let mut file = File::create(format!("{}/{}", index_dir, "index.html")).await?;
         let mut month_posts: Vec<&HydratedPost> = posts
             .iter()
-            .filter(|p| p.post_date.year() == current_date.year())
+            .filter(|p| {
+                p.post_date.with_timezone(&generator.common.timezone).year() == current_date.year()
+            })
             .collect();
         month_posts.sort_by(|a, b| a.post_date.cmp(&b.post_date));
         let mut grouped = Vec::new();

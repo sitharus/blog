@@ -49,13 +49,14 @@ pub async fn generate_post_html<'a>(
 
 pub async fn generate_post_page<'a>(generator: &Generator<'a>, post: &HydratedPost) -> Result<()> {
     let rendered = generate_post_html(generator, post).await?;
-    let month_name = Month::from_u32(post.post_date.month())
+    let post_date = post.post_date.with_timezone(&generator.common.timezone);
+    let month_name = Month::from_u32(post_date.month())
         .ok_or(anyhow!("Bad month number"))?
         .name();
     let dir = format!(
         "{}/{}/{}",
         generator.output_path,
-        post.post_date.year(),
+        post_date.year(),
         month_name
     );
     let post_path = format!("{}/{}.html", &dir, post.url_slug);

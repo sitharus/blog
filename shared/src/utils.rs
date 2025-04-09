@@ -3,7 +3,7 @@ use std::str::FromStr;
 use anyhow::anyhow;
 use askama::Template;
 use cgi;
-use chrono::{Datelike, Month};
+use chrono::{DateTime, Datelike, Month, Utc};
 use num_traits::FromPrimitive;
 use serde::Deserialize;
 use serde_querystring::{from_bytes, from_str, ParseMode};
@@ -73,12 +73,14 @@ impl BlogUtils for Option<&String> {
 
 pub fn blog_post_url(
     slug: String,
-    post_date: chrono::NaiveDate,
+    post_date: DateTime<Utc>,
+    timezone: chrono_tz::Tz,
     base_url: String,
 ) -> ::askama::Result<String> {
-    let month = Month::from_u32(post_date.month())
+    let local_date = post_date.with_timezone(&timezone);
+    let month = Month::from_u32(local_date.month())
         .ok_or(::askama::Error::Custom("Could not find month".into()))?
         .name();
-    let url = format!("{}{}/{}/{}.html", base_url, post_date.year(), month, slug);
+    let url = format!("{}{}/{}/{}.html", base_url, local_date.year(), month, slug);
     Ok(url)
 }

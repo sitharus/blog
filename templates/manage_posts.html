@@ -31,7 +31,7 @@
 				{% for post in posts %}
 					<tr>
 						<td>{{ post.title }}</td>
-						<td>{{ post.post_date|format_long_date }}</td>
+						<td>{{ post.post_date|format_long_date(common.settings.timezone) }}</td>
 						<td>{{ post.state }}</td>
 						<td>
 							<a href="{{ crate::utils::link_to("edit_post", [("id", post.id)], common) }}">Edit</a>

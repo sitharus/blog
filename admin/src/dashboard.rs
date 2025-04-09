@@ -46,7 +46,7 @@ impl fmt::Display for Follower {
 
 struct DashboardPost {
     pub id: i32,
-    pub post_date: chrono::NaiveDate,
+    pub post_date: chrono::DateTime<Utc>,
     pub title: String,
     pub comment_count: i64,
     pub like_count: i64,

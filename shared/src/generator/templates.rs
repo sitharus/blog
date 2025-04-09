@@ -93,9 +93,9 @@ pub async fn load_templates(
     let tz = common.timezone.clone();
     let media_base_url = common.media_base_url.clone();
     let media = common.media.clone();
-    let post_url = BuildUrl::new(base_url.clone());
-    let site_url = BuildUrl::new(base_url);
-    let static_url = BuildUrl::new(common.static_base_url.clone());
+    let post_url = BuildUrl::new(base_url.clone(), tz);
+    let site_url = BuildUrl::new(base_url, tz);
+    let static_url = BuildUrl::new(common.static_base_url.clone(), tz);
 
     tera.register_filter("posturl", post_url);
     tera.register_filter("staticurl", static_url);
@@ -125,23 +125,26 @@ pub async fn load_templates(
 
 pub fn blog_post_url(
     slug: String,
-    post_date: chrono::NaiveDate,
+    post_date: chrono::DateTime<Utc>,
+    timezone: chrono_tz::Tz,
     base_url: String,
 ) -> tera::Result<String> {
-    let month = Month::from_u32(post_date.month())
+    let local_date = post_date.with_timezone(&timezone);
+    let month = Month::from_u32(local_date.month())
         .ok_or(tera::Error::msg("Could not find month".to_string()))?
         .name();
-    let url = format!("{}{}/{}/{}.html", base_url, post_date.year(), month, slug);
+    let url = format!("{}{}/{}/{}.html", base_url, local_date.year(), month, slug);
     Ok(url)
 }
 
 struct BuildUrl {
     base_url: String,
+    timezone: chrono_tz::Tz,
 }
 
 impl BuildUrl {
-    pub fn new(base_url: String) -> Self {
-        BuildUrl { base_url }
+    pub fn new(base_url: String, timezone: chrono_tz::Tz) -> Self {
+        BuildUrl { base_url, timezone }
     }
 }
 
@@ -163,9 +166,12 @@ impl Filter for BuildUrl {
                         post.post_date.year(),
                         post.post_date.format("%B")
                     )),
-                    _ => {
-                        blog_post_url(post.url_slug.clone(), post.post_date, self.base_url.clone())
-                    }
+                    _ => blog_post_url(
+                        post.url_slug.clone(),
+                        post.post_date,
+                        self.timezone,
+                        self.base_url.clone(),
+                    ),
                 }?;
                 Ok(Value::String(url.into()))
             }

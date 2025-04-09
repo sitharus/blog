@@ -15,7 +15,7 @@ use super::types::PostRequest;
 use anyhow::anyhow;
 use askama::Template;
 use cgi;
-use chrono::{offset::Utc, NaiveDate};
+use chrono::{offset::Utc, DateTime};
 use regex::Regex;
 use sqlx::{query, query_as, PgPool};
 
@@ -34,7 +34,7 @@ struct NewPost<'a> {
     song: Option<&'a str>,
     mood: Option<&'a str>,
     summary: Option<&'a str>,
-    date: &'a NaiveDate,
+    date: &'a DateTime<Utc>,
     status: PostStatus,
     tags: Vec<i32>,
     all_tags: Vec<DisplayTag>,
@@ -50,7 +50,7 @@ struct EditPost<'a> {
     song: Option<&'a str>,
     mood: Option<&'a str>,
     summary: Option<&'a str>,
-    date: &'a NaiveDate,
+    date: &'a DateTime<Utc>,
     status: PostStatus,
     tags: Vec<i32>,
     all_tags: Vec<DisplayTag>,
@@ -158,7 +158,7 @@ RETURNING id"#,
         song: None,
         summary: None,
         status: PostStatus::Draft,
-        date: &Utc::now().date_naive(),
+        date: &Utc::now(),
         tags: vec![],
         all_tags: get_tags(&globals.connection_pool).await?,
     };

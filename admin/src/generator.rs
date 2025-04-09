@@ -102,6 +102,7 @@ INNER JOIN users
 ON users.id = posts.author_id
 WHERE state = 'published'
 AND posts.site_id = $1
+AND posts.post_date <= CURRENT_TIMESTAMP
 ORDER BY post_date DESC
 "#, globals.site_id
     )
