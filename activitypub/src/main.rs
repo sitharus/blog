@@ -34,7 +34,7 @@ fn main() -> Result<(), anyhow::Error> {
             Err(e) => bail!(e),
         }
     } else {
-        Ok(cgi::handle(|request: cgi::Request| -> cgi::Response {
+        cgi::handle(|request: cgi::Request| -> cgi::Response {
             match runtime.block_on(process(request)) {
                 Ok(a) => a,
                 Err(e) => {
@@ -42,7 +42,8 @@ fn main() -> Result<(), anyhow::Error> {
                     cgi::text_response(500, "Internal server error")
                 }
             }
-        }))
+        });
+        Ok(())
     }
 }
 
@@ -184,7 +185,7 @@ async fn host_meta(connection: &PgPool, host_name: &String) -> anyhow::Result<cg
     .fetch_all(connection)
     .await?;
 
-    if valid_sites.len() == 0 {
+    if valid_sites.is_empty() {
         return Ok(cgi::empty_response(404));
     }
 

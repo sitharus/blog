@@ -266,7 +266,7 @@ fn month_name(in_date_time: &Value, _args: &HashMap<String, Value>) -> tera::Res
         Value::Object(_) | Value::String(_) => from_value::<NaiveDate>(in_date_time.clone())
             .map_err(tera::Error::from)
             .map(|m| m.format("%B").to_string())
-            .map(|s| Value::String(s.into())),
+            .map(Value::String),
 
         _ => Err(tera::Error::msg(format!(
             "Not formattable as month {:?}",
@@ -286,7 +286,7 @@ fn format_human_date(in_date_time: &Value, _args: &HashMap<String, Value>) -> te
     from_value::<NaiveDate>(in_date_time.clone())
         .map_err(tera::Error::from)
         .map(|date_time| date_time.format("%A, %-d %B, %C%y").to_string())
-        .map(|s| Value::String(s.into()))
+        .map(Value::String)
 }
 
 fn format_human_datetime(in_date_time: &Value, tz: &Tz) -> tera::Result<Value> {
@@ -298,7 +298,7 @@ fn format_human_datetime(in_date_time: &Value, tz: &Tz) -> tera::Result<Value> {
                 .format("%A, %-d %B, %C%y at %-I:%m%P %Z")
                 .to_string()
         })
-        .map(|s| Value::String(s.into()))
+        .map(Value::String)
 }
 
 fn format_weekday(in_date: &Value, _args: &HashMap<String, Value>) -> tera::Result<Value> {
@@ -408,10 +408,8 @@ fn format_markdown(
     match before_cut {
         true => pulldown_cmark::html::push_html(
             &mut html_output,
-            parser.take_while(|e| match e {
-                Event::Html(node) if node.starts_with("<blog-cut>") => false,
-                _ => true,
-            }),
+            parser
+                .take_while(|e| !matches!(e, Event::Html(node) if node.starts_with("<blog-cut>"))),
         ),
         false => pulldown_cmark::html::push_html(&mut html_output, parser),
     };

@@ -25,8 +25,8 @@ pub async fn inbox(
     connection: &PgPool,
     settings: &Settings,
 ) -> anyhow::Result<cgi::Response> {
-    match request.method() {
-        &Method::GET => {
+    match *request.method() {
+        Method::GET => {
             let items: Vec<Activity> = match validate(request, connection, settings).await {
                 Ok(key) => {
                     let items =
@@ -84,7 +84,7 @@ ORDER BY ai.received_at DESC
             };
             jsonld_response(&inbox)
         }
-        &Method::POST => {
+        Method::POST => {
             let body: Value = serde_json::from_slice(request.body())?;
             http_signatures::validate(request, connection, settings).await?;
 
@@ -194,7 +194,7 @@ async fn process_follow(
     let accept = req.accept(settings.activitypub_actor_uri());
 
     http_signatures::sign_and_send(
-        ureq::post(&inbox).set(header::CONTENT_TYPE.as_str(), "application/activity+json"),
+        ureq::post(inbox).set(header::CONTENT_TYPE.as_str(), "application/activity+json"),
         accept,
         settings,
     )?;

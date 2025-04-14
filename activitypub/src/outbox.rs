@@ -26,10 +26,7 @@ pub async fn render(connection: &PgPool, settings: &Settings) -> anyhow::Result<
         summary: Some("Outbox".into()),
         items: contents
             .into_iter()
-            .map(|i| {
-                serde_json::from_value::<Activity>(i.activity)
-                    .expect(format!("Not an activity: {:?}", i.id).as_str())
-            })
+            .flat_map(|i| serde_json::from_value::<Activity>(i.activity))
             .collect(),
     };
 

@@ -172,7 +172,7 @@ pub async fn edit_post(
         .query
         .get("id")
         .ok_or(anyhow!("Could not find id"))
-        .and_then(parse_into)?;
+        .and_then(|s| parse_into(&s))?;
 
     if request.method() == "POST" {
         let req: PostRequest = post_body(&request)?;

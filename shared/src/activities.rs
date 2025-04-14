@@ -32,17 +32,17 @@ where
     ordered_items: Vec<T>,
 }
 
-impl<T> Into<OrderedCollectionJsonLD<T>> for OrderedCollection<T>
+impl<T> From<OrderedCollection<T>> for OrderedCollectionJsonLD<T>
 where
     T: Serialize + Clone,
 {
-    fn into(self) -> OrderedCollectionJsonLD<T> {
+    fn from(val: OrderedCollection<T>) -> Self {
         OrderedCollectionJsonLD {
             context: "https://www.w3.org/ns/activitystreams".into(),
-            summary: self.summary,
+            summary: val.summary,
             collection_type: "OrderedCollection".into(),
-            total_items: self.items.len(),
-            ordered_items: self.items,
+            total_items: val.items.len(),
+            ordered_items: val.items,
         }
     }
 }
@@ -107,7 +107,7 @@ impl Create {
     }
 
     pub fn object(&self) -> &Activity {
-        &*self.object
+        &self.object
     }
 }
 
@@ -263,7 +263,7 @@ impl Actor {
     }
 }
 
-fn as_media_ref(media: &String, base_url: &String, media_base_url: &String) -> MediaRef {
+fn as_media_ref(media: &str, base_url: &str, media_base_url: &str) -> MediaRef {
     let url = Url::parse(base_url)
         .unwrap()
         .join(media_base_url)

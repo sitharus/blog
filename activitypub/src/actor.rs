@@ -23,8 +23,8 @@ pub struct ActorRecord {
     pub server: Option<String>,
     pub raw_actor_data: Option<Value>,
 }
-#[warn(dead_code)]
 
+#[warn(dead_code)]
 pub async fn get_actor(
     actor_uri: String,
     connection: &PgPool,
@@ -122,7 +122,7 @@ fn uri_for_actor(actor: &String) -> anyhow::Result<String> {
             let actor_link = finger["links"]
                 .as_array()
                 .ok_or(anyhow!("No links in webfinger for {}", actor))?
-                .into_iter()
+                .iter()
                 .find(|x| {
                     x["rel"].as_str() == Some("self")
                         && x["type"].as_str() == Some("application/activity+json")

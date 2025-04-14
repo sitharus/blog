@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use anyhow::anyhow;
 use askama::Template;
-use cgi;
 use shared::{database, generator, utils};
 use sqlx::query;
 use tokio::runtime::Runtime;
@@ -115,9 +114,7 @@ cgi::cgi_try_main! {|request: cgi::Request| -> anyhow::Result<cgi::Response> {
         Some(qs) => {
             let runtime = Runtime::new().unwrap();
 
-            match runtime.block_on(process(&request, qs)) {
-                x => x
-            }
+            runtime.block_on(process(&request, qs))
         },
         None => {
             utils::render_html(Http404{})

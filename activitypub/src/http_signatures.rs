@@ -1,7 +1,6 @@
 use anyhow::{anyhow, bail};
 use base64::{engine::general_purpose, Engine as _};
 use cgi::http::header;
-use rand;
 use rsa::{
     pkcs1::{DecodeRsaPrivateKey, DecodeRsaPublicKey},
     pkcs1v15::{self, SigningKey, VerifyingKey},
@@ -47,7 +46,7 @@ pub async fn validate(
             let computed_digest = match digest {
                 Some(_) => {
                     let body = request.body();
-                    let digest = Sha256::digest(&body);
+                    let digest = Sha256::digest(body);
                     Some(format!(
                         "SHA-256={}",
                         general_purpose::STANDARD.encode(digest)
@@ -94,7 +93,7 @@ pub async fn validate(
                 .as_slice()
                 .try_into()?;
 
-            verifying_key.verify(signing_string.as_bytes(), &decoded_signature.into())?;
+            verifying_key.verify(signing_string.as_bytes(), &decoded_signature)?;
             Ok(sig.key_id)
         }
         _ => bail!("Signature not present"),
@@ -127,7 +126,7 @@ where
         "(request-target): {} {}\nhost: {}\ndate: {}\ndigest: {}",
         method, path, host, date, digest_header
     );
-    let signature = signing_key.sign_with_rng(&mut rng, &signature_string.as_bytes());
+    let signature = signing_key.sign_with_rng(&mut rng, signature_string.as_bytes());
     let b64_sig = general_purpose::STANDARD.encode(signature.to_bytes());
 
     let signature_header = format!(
@@ -162,7 +161,7 @@ pub fn sign_and_call(request: Request, settings: &Settings) -> anyhow::Result<Re
         "(request-target): {} {}\nhost: {}\ndate: {}",
         method, path, host, date
     );
-    let signature = signing_key.sign_with_rng(&mut rng, &signature_string.as_bytes());
+    let signature = signing_key.sign_with_rng(&mut rng, signature_string.as_bytes());
     let b64_sig = general_purpose::STANDARD.encode(signature.to_bytes());
 
     let signature_header = format!(

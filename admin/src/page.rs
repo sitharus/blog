@@ -129,7 +129,7 @@ pub async fn edit_post(
         .query
         .get("id")
         .ok_or(anyhow!("Could not find id"))
-        .and_then(parse_into)?;
+        .and_then(|s| parse_into(&s))?;
 
     let common = get_common(&globals, AdminMenuPages::Pages).await?;
 
