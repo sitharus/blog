@@ -58,7 +58,7 @@ pub fn default_templates() -> HashMap<String, TemplateInfo> {
             TemplateInfo::create_from_default(template.into()),
         );
     }
-    return templates;
+    templates
 }
 
 pub async fn load_templates(
@@ -90,7 +90,7 @@ pub async fn load_templates(
     }
 
     let base_url = common.base_url.clone();
-    let tz = common.timezone.clone();
+    let tz = common.timezone;
     let media_base_url = common.media_base_url.clone();
     let media = common.media.clone();
     let post_url = BuildUrl::new(base_url.clone(), tz);
@@ -120,7 +120,7 @@ pub async fn load_templates(
 
     tera.register_function("buildurl", site_url);
 
-    return Ok(tera);
+    Ok(tera)
 }
 
 pub fn blog_post_url(
@@ -173,7 +173,7 @@ impl Filter for BuildUrl {
                         self.base_url.clone(),
                     ),
                 }?;
-                Ok(Value::String(url.into()))
+                Ok(Value::String(url))
             }
             Value::String(s) => Ok(Value::String(format!("{}{}", self.base_url, s))),
             _ => Err(tera::Error::msg(format!(
@@ -192,7 +192,7 @@ impl Function for BuildUrl {
     fn call(&self, args: &HashMap<String, Value>) -> tera::Result<Value> {
         if let Some(static_url) = args.get("static") {
             Ok(Value::String(format!("{}/{}", self.base_url, static_url)))
-        } else if let Some(_) = args.get("home") {
+        } else if args.get("home").is_some() {
             Ok(Value::String(format!("{}/", self.base_url)))
         } else if let Some(page) = args.get("page") {
             match page {

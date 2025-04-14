@@ -21,9 +21,9 @@ struct YearIndexPage<'a> {
     date: &'a NaiveDate,
 }
 
-pub async fn generate_year_index_pages<'a>(
-    posts: &Vec<HydratedPost>,
-    generator: &Generator<'a>,
+pub async fn generate_year_index_pages(
+    posts: &[HydratedPost],
+    generator: &Generator<'_>,
 ) -> anyhow::Result<()> {
     let post_date = posts.last().ok_or(anyhow!("No posts!"))?.post_date;
 

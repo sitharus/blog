@@ -15,7 +15,7 @@ struct Page<'a> {
     last_updated: DateTime<Utc>,
 }
 
-pub async fn generate_pages<'a>(generator: &Generator<'a>) -> anyhow::Result<()> {
+pub async fn generate_pages(generator: &Generator<'_>) -> anyhow::Result<()> {
     let pages = query!(
         "SELECT title, url_slug, body, date_updated FROM pages WHERE site_id=$1",
         generator.site_id
@@ -41,10 +41,7 @@ pub async fn generate_pages<'a>(generator: &Generator<'a>) -> anyhow::Result<()>
     Ok(())
 }
 
-pub async fn generate_single_page<'a>(
-    id: i32,
-    generator: &Generator<'a>,
-) -> anyhow::Result<String> {
+pub async fn generate_single_page(id: i32, generator: &Generator<'_>) -> anyhow::Result<String> {
     let page = query!(
         "SELECT title, url_slug, body, date_updated FROM pages WHERE site_id=$1 and id = $2",
         generator.site_id,

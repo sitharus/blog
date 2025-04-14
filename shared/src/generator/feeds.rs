@@ -14,9 +14,9 @@ struct Feed<'a> {
     date: DateTime<Utc>,
 }
 
-pub async fn generate_rss_feed<'a>(
-    posts: &Vec<HydratedPost>,
-    generator: &Generator<'a>,
+pub async fn generate_rss_feed(
+    posts: &[HydratedPost],
+    generator: &Generator<'_>,
 ) -> anyhow::Result<()> {
     let max = ::std::cmp::min(posts.len(), 10);
     let posts_in_feed = posts
@@ -38,9 +38,9 @@ pub async fn generate_rss_feed<'a>(
     Ok(())
 }
 
-pub async fn generate_atom_feed<'a>(
-    posts: &Vec<HydratedPost>,
-    generator: &Generator<'a>,
+pub async fn generate_atom_feed(
+    posts: &[HydratedPost],
+    generator: &Generator<'_>,
 ) -> anyhow::Result<()> {
     let max = ::std::cmp::min(posts.len(), 10);
     let posts_in_feed = posts

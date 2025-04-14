@@ -24,10 +24,7 @@ struct PostPage<'a> {
     comments: Vec<HydratedComment>,
 }
 
-pub async fn generate_post_html<'a>(
-    generator: &Generator<'a>,
-    post: &HydratedPost,
-) -> Result<String> {
+pub async fn generate_post_html(generator: &Generator<'_>, post: &HydratedPost) -> Result<String> {
     let comments = if post.id > 0 {
         query_as!(HydratedComment, "SELECT author_name, post_body, created_date FROM comments WHERE post_id=$1 AND status = 'approved' ORDER BY created_date ASC", post.id)
                                    .fetch_all(generator.pool).await?
@@ -47,7 +44,7 @@ pub async fn generate_post_html<'a>(
         .render("post.html", &Context::from_serialize(&post_page)?)?)
 }
 
-pub async fn generate_post_page<'a>(generator: &Generator<'a>, post: &HydratedPost) -> Result<()> {
+pub async fn generate_post_page(generator: &Generator<'_>, post: &HydratedPost) -> Result<()> {
     let rendered = generate_post_html(generator, post).await?;
     let post_date = post.post_date.with_timezone(&generator.common.timezone);
     let month_name = Month::from_u32(post_date.month())

@@ -21,23 +21,23 @@ struct IndexPage<'a> {
     total_pages: i32,
 }
 
-pub async fn generate_index_pages<'a>(
+pub async fn generate_index_pages(
     posts: IntoIter<&HydratedPost>,
-    generator: &Generator<'a>,
+    generator: &Generator<'_>,
 ) -> anyhow::Result<()> {
     generate_pages(posts, generator, generator.output_path).await
 }
 
-pub fn index_content<'a>(
+pub fn index_content(
     posts: Vec<&HydratedPost>,
-    generator: &Generator<'a>,
+    generator: &Generator<'_>,
     page_number: i32,
     total_pages: i32,
 ) -> anyhow::Result<String> {
     let page = IndexPage {
         title: &generator.common.blog_name,
         posts,
-        common: &generator.common,
+        common: generator.common,
         page: page_number,
         total_pages,
     };
@@ -69,9 +69,9 @@ async fn generate_pages<'a>(
     Ok(())
 }
 
-pub async fn generate_tag_indexes<'a>(
-    posts: &Vec<HydratedPost>,
-    generator: &Generator<'a>,
+pub async fn generate_tag_indexes(
+    posts: &[HydratedPost],
+    generator: &Generator<'_>,
 ) -> anyhow::Result<()> {
     let all_tags = query!("SELECT name FROM tags WHERE site_id=$1", generator.site_id)
         .fetch_all(generator.pool)

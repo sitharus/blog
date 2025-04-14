@@ -70,14 +70,15 @@ AND posts.id=$1
 }
 
 pub async fn get_common(connection: &PgPool, site_id: i32) -> anyhow::Result<CommonData> {
-    let settings: HashMap<String, String>;
     let raw_settings = query!(
         "SELECT setting_name, value FROM blog_settings WHERE site_id=$1",
         site_id
     )
     .fetch_all(connection)
     .await?;
-    settings = HashMap::from_iter(raw_settings.into_iter().map(|r| (r.setting_name, r.value)));
+
+    let settings: HashMap<String, String> =
+        HashMap::from_iter(raw_settings.into_iter().map(|r| (r.setting_name, r.value)));
 
     let links = query_as!(
         Link,
