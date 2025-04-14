@@ -53,7 +53,7 @@ async fn page(globals: PageGlobals) -> anyhow::Result<cgi::Response> {
         .query
         .get("id")
         .ok_or(anyhow!("No ID"))
-        .and_then(|s| parse_into(&s))?;
+        .and_then(|s| parse_into(s))?;
     let common = get_common(&globals.connection_pool, globals.site_id).await?;
     let gen = get_generator(&globals, &common).await?;
     let result = generate_single_page(page_id, &gen).await?;

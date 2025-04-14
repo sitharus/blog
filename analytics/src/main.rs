@@ -48,10 +48,8 @@ async fn parse_file(args: Options) {
         .await
         .unwrap();
     let lines = read_lines(args.source_file.clone()).expect("Could not open file!");
-    for maybe_line in lines {
-        if let Ok(line) = maybe_line {
-            parse_line(line, args.source_file.clone(), &mut connection).await;
-        }
+    for line in lines.map_while(Result::ok) {
+        parse_line(line, args.source_file.clone(), &mut connection).await;
     }
 }
 

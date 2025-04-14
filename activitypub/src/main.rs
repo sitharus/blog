@@ -123,7 +123,7 @@ async fn process_activitypub_action(
 
 fn actor(request: &cgi::Request, settings: Settings) -> anyhow::Result<cgi::Response> {
     if request.method() == "GET" {
-        let actor = Activity::Person(Actor::new(settings));
+        let actor = Activity::Person(Box::new(Actor::new(settings)));
         jsonld_response(&actor)
     } else {
         Ok(cgi::text_response(405, "Bad request - only GET supported"))

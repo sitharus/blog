@@ -129,12 +129,12 @@ pub async fn edit_post(
         .query
         .get("id")
         .ok_or(anyhow!("Could not find id"))
-        .and_then(|s| parse_into(&s))?;
+        .and_then(|s| parse_into(s))?;
 
     let common = get_common(&globals, AdminMenuPages::Pages).await?;
 
     if request.method() == "POST" {
-        let req: NewPageRequest = post_body(&request)?;
+        let req: NewPageRequest = post_body(request)?;
         let response = query!(
             "UPDATE pages SET title=$1, url_slug=$2, body=$3 WHERE id=$4 AND site_id=$5",
             req.title,
@@ -167,9 +167,9 @@ pub async fn edit_post(
         .await?;
         render_html(EditPage {
             common,
-            title: page.title.into(),
-            slug: page.url_slug.into(),
-            body: page.body.into(),
+            title: page.title,
+            slug: page.url_slug,
+            body: page.body,
         })
     }
 }

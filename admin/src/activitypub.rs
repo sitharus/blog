@@ -125,13 +125,13 @@ pub async fn publish_profile_updates(globals: PageGlobals) -> anyhow::Result<cgi
         settings.activitypub_base(),
         Uuid::new_v4().hyphenated()
     );
-    let update = Activity::Update(Update::new(
+    let update = Activity::Update(Box::new(Update::new(
         settings.activitypub_actor_uri(),
         settings.activitypub_actor_uri(),
-        Activity::Person(Actor::new(settings)),
+        Activity::Person(Box::new(Actor::new(settings))),
         vec![activities::PUBLIC_TIMELINE.into()],
         vec![],
-    ));
+    )));
     let inserted = query!(
         "INSERT INTO activitypub_outbox(activity_id, activity, site_id) VALUES($1, $2, $3) RETURNING id",
         activity_url,

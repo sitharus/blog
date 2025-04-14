@@ -50,19 +50,19 @@ where
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type")]
 pub enum Activity {
-    Note(Note),
-    Follow(Follow),
-    Create(Create),
-    Undo(Undo),
-    Delete(Delete),
-    Like(Like),
-    Update(Update),
-    Person(Actor),
+    Note(Box<Note>),
+    Follow(Box<Follow>),
+    Create(Box<Create>),
+    Undo(Box<Undo>),
+    Delete(Box<Delete>),
+    Like(Box<Like>),
+    Update(Box<Update>),
+    Person(Box<Actor>),
 }
 
 impl Activity {
     pub fn create(actor: String, object: Activity, to: Vec<String>, cc: Vec<String>) -> Self {
-        Self::Create(Create::new(actor, object, to, cc))
+        Self::Create(Box::new(Create::new(actor, object, to, cc)))
     }
 
     pub fn note(
@@ -72,7 +72,7 @@ impl Activity {
         to: Vec<String>,
         cc: Vec<String>,
     ) -> Self {
-        Self::Note(Note::new(content, id, published, to, cc))
+        Self::Note(Box::new(Note::new(content, id, published, to, cc)))
     }
 }
 
@@ -171,7 +171,7 @@ pub struct Follow {
 
 impl Follow {
     pub fn accept(&self, by: String) -> Accept {
-        Accept::new(by, Activity::Follow(self.clone()))
+        Accept::new(by, Activity::Follow(Box::new(self.clone())))
     }
 }
 

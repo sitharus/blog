@@ -172,10 +172,10 @@ pub async fn edit_post(
         .query
         .get("id")
         .ok_or(anyhow!("Could not find id"))
-        .and_then(|s| parse_into(&s))?;
+        .and_then(|s| parse_into(s))?;
 
     if request.method() == "POST" {
-        let req: PostRequest = post_body(&request)?;
+        let req: PostRequest = post_body(request)?;
         let status = req.status.clone();
         query!(
             "UPDATE posts SET title=$1, body=$2, state=$3, post_date = $4, url_slug=$5, song=$6, mood=$7, summary=$8 WHERE id=$9 AND site_id=$10",

@@ -56,21 +56,23 @@ ORDER BY ai.received_at DESC
                                 to: Some(to),
                                 cc,
                                 ..
-                            } => Some(Activity::Note(Note::new(
+                            } => Some(Activity::Note(Box::new(Note::new(
                                 message,
                                 item_id,
                                 received_at,
                                 serde_json::from_value(to).unwrap_or(vec![]),
                                 cc.and_then(|c| serde_json::from_value(c).ok())
                                     .unwrap_or(vec![]),
-                            ))),
+                            )))),
                             InboxItem {
                                 message: None,
                                 post_id,
                                 actor: Some(actor),
                                 object: Some(object),
                                 ..
-                            } if post_id > 0 => Some(Activity::Like(Like { actor, object })),
+                            } if post_id > 0 => {
+                                Some(Activity::Like(Box::new(Like { actor, object })))
+                            }
                             _ => None,
                         })
                         .collect()
@@ -119,28 +121,28 @@ async fn process_inbound(
     match activity {
         Ok(Activity::Follow(req)) => {
             if !is_blocked(req.actor.clone(), connection).await? {
-                process_follow(req, connection, settings).await?;
+                process_follow(*req, connection, settings).await?;
                 mark_as_processed(inbox_id, connection).await
             } else {
                 Ok(())
             }
         }
         Ok(Activity::Delete(req)) => {
-            process_delete(req, connection, settings).await?;
+            process_delete(*req, connection, settings).await?;
             mark_as_processed(inbox_id, connection).await
         }
         Ok(Activity::Undo(undo)) => {
-            process_undo(undo, connection, settings).await?;
+            process_undo(*undo, connection, settings).await?;
             mark_as_processed(inbox_id, connection).await
         }
         Ok(Activity::Create(create)) => {
             if !is_blocked(create.actor.clone(), connection).await? {
-                process_create(inbox_id, create, connection, settings).await?;
+                process_create(inbox_id, *create, connection, settings).await?;
             }
             mark_as_processed(inbox_id, connection).await
         }
         Ok(Activity::Like(like)) => {
-            process_like(inbox_id, like, connection, settings).await?;
+            process_like(inbox_id, *like, connection, settings).await?;
             mark_as_processed(inbox_id, connection).await
         }
         Err(e) => {
