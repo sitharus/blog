@@ -3,7 +3,6 @@ use crate::{
     types::{AdminMenuPages, PageGlobals},
 };
 use askama::Template;
-use cgi;
 use serde::Deserialize;
 use shared::utils::{post_body, render_html};
 use sqlx::query;
@@ -26,7 +25,7 @@ struct FormContent {
 
 pub async fn render(request: &cgi::Request, globals: PageGlobals) -> anyhow::Result<cgi::Response> {
     if request.method() == "POST" {
-        let form: FormContent = post_body(&request)?;
+        let form: FormContent = post_body(request)?;
         match (form.target.as_str(), &form) {
             (
                 "details",
@@ -59,7 +58,7 @@ pub async fn render(request: &cgi::Request, globals: PageGlobals) -> anyhow::Res
                 .fetch_one(&globals.connection_pool)
                 .await
                 .unwrap();
-                bcrypt::verify(&current_password.as_bytes(), &existing_password.password)?;
+                bcrypt::verify(current_password.as_bytes(), &existing_password.password)?;
                 let new_hash = bcrypt::hash(new_password, bcrypt::DEFAULT_COST)?;
                 query!(
                     "UPDATE users SET password = $1 WHERE id = $2",

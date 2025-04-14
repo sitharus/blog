@@ -160,8 +160,8 @@ pub async fn send(request: &cgi::Request, globals: PageGlobals) -> anyhow::Resul
         .ok_or(anyhow!("No id"))?
         .parse::<i32>()?;
     let settings = get_settings_struct(&globals.connection_pool, globals.site_id).await?;
-    match request.method() {
-        &Method::GET => {
+    match *request.method() {
+        Method::GET => {
             let common = get_common(&globals, crate::types::AdminMenuPages::Posts).await?;
             let post = query!(
                 "SELECT title, url_slug, post_date FROM posts WHERE id=$1 AND site_id=$2",
@@ -182,8 +182,8 @@ pub async fn send(request: &cgi::Request, globals: PageGlobals) -> anyhow::Resul
                 common,
             })
         }
-        &Method::POST => {
-            let body = post_body::<HashMap<String, String>>(&request)?;
+        Method::POST => {
+            let body = post_body::<HashMap<String, String>>(request)?;
             let note_id = format!(
                 "{}/notes/{}",
                 settings.activitypub_base(),

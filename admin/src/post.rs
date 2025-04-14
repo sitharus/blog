@@ -14,7 +14,6 @@ use super::response;
 use super::types::PostRequest;
 use anyhow::anyhow;
 use askama::Template;
-use cgi;
 use chrono::{offset::Utc, DateTime};
 use regex::Regex;
 use sqlx::{query, query_as, PgPool};
@@ -83,10 +82,10 @@ pub async fn new_post(
     let common = get_common(&globals, AdminMenuPages::NewPost).await?;
 
     if request.method() == "POST" {
-        let req: PostRequest = post_body(&request)?;
+        let req: PostRequest = post_body(request)?;
 
         let invalid_chars = Regex::new(r"[^a-z0-9_-]+")?;
-        let mut initial_slug = if req.slug == "" {
+        let mut initial_slug = if req.slug.is_empty() {
             req.title.clone()
         } else {
             req.slug.clone()
@@ -142,7 +141,7 @@ RETURNING id"#,
                 mood: req.mood.as_deref(),
                 song: req.song.as_deref(),
                 summary: req.song.as_deref(),
-                tags: req.tags.unwrap_or(vec![]),
+                tags: req.tags.unwrap_or_default(),
                 all_tags: get_tags(&globals.connection_pool).await?,
             };
             render_html(content)

@@ -3,7 +3,6 @@ use crate::{
     types::{AdminMenuPages, PageGlobals},
 };
 use askama::Template;
-use cgi;
 use chrono::{DateTime, Utc};
 use shared::utils::render_html;
 use sqlx::query_as;
@@ -53,7 +52,7 @@ struct DashboardPost {
 }
 
 pub async fn render(request: &cgi::Request, globals: PageGlobals) -> anyhow::Result<cgi::Response> {
-    session::session_id(&globals.connection_pool, &request).await?;
+    session::session_id(&globals.connection_pool, request).await?;
 
     let recent_posts = query_as!(
         DashboardPost,

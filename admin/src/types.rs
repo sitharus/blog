@@ -44,7 +44,7 @@ impl fmt::Display for AdminMenuPages {
 impl PartialEq<&str> for AdminMenuPages {
     fn eq(&self, rhs: &&str) -> bool {
         let str_value = self.to_string();
-        return str_value == *rhs;
+        str_value == *rhs
     }
 }
 

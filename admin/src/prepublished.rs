@@ -67,10 +67,9 @@ async fn index(globals: PageGlobals) -> anyhow::Result<cgi::Response> {
     let page_number = 1;
     let chunk = posts
         .chunks(10)
-        .into_iter()
-        .nth(0)
+        .next()
         .ok_or(anyhow::anyhow!("No post!"))?
-        .into_iter()
+        .iter()
         .collect();
     let gen = get_generator(&globals, &common).await?;
 
@@ -117,7 +116,7 @@ fn page_url(post: &Value, args: &HashMap<String, Value>) -> tera::Result<Value> 
                 ),
                 _ => format!("?action=prepublished&kind=post&id={}", post.id),
             };
-            Ok(Value::String(url.into()))
+            Ok(Value::String(url))
         }
         Value::String(s) => Ok(Value::String(format!("?action=prepublished&path={}", s))),
         _ => Err(tera::Error::msg(format!(
@@ -139,7 +138,7 @@ impl Function for SiteUrlBuilder {
                 ))),
                 _ => Err(tera::Error::msg("Static url must be a string")),
             }
-        } else if let Some(_) = args.get("home") {
+        } else if args.get("home").is_some() {
             Ok(Value::String("?action=prepublished&kind=index".into()))
         } else if let Some(page) = args.get("page") {
             match page {

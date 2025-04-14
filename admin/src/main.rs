@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use anyhow::{anyhow, bail};
 use askama::Template;
-use cgi;
 use generator::preview_page;
 use lazy_static::lazy_static;
 use media::manage_media;
@@ -114,7 +113,7 @@ async fn do_login(request: &cgi::Request) -> anyhow::Result<cgi::Response> {
         Ok(row) => {
             let dbpassword = row.password;
             let pwbytes = form.password.as_bytes();
-            if let Ok(success) = bcrypt::verify(&pwbytes, &dbpassword) {
+            if let Ok(success) = bcrypt::verify(pwbytes, &dbpassword) {
                 if success {
                     session::set_session_and_redirect(&db_connection, row.id, "dashboard").await
                 } else {
@@ -167,7 +166,7 @@ async fn process_inner(
         }
         _ => {
             let pool = database::connect_db().await?;
-            let session = session::session_id(&pool, &request).await?;
+            let session = session::session_id(&pool, request).await?;
             let default_site_id = "1".to_string();
             let site_id = query
                 .get("site")
@@ -182,35 +181,35 @@ async fn process_inner(
                 session,
             };
             match action.as_str() {
-                "dashboard" => dashboard::render(&request, page_request).await,
-                "new-post" => post::new_post(&request, page_request).await,
+                "dashboard" => dashboard::render(request, page_request).await,
+                "new-post" => post::new_post(request, page_request).await,
                 "regenerate" => {
                     generator::regenerate_blog(&page_request).await?;
                     activitypub::publish_posts(page_request, true).await?;
                     render_redirect("dashboard", site_id)
                 }
-                "account" => account::render(&request, page_request).await,
-                "settings" => settings::render(&request, page_request).await,
-                "links" => links::render(&request, page_request).await,
-                "edit_post" => post::edit_post(&request, page_request).await,
+                "account" => account::render(request, page_request).await,
+                "settings" => settings::render(request, page_request).await,
+                "links" => links::render(request, page_request).await,
+                "edit_post" => post::edit_post(request, page_request).await,
                 "manage_posts" => post::manage_posts(page_request).await,
                 "comments" => comments::comment_list(page_request).await,
-                "moderate_comment" => comments::moderate_comment(&request, page_request).await,
-                "preview" => preview_page(&request, page_request).await,
+                "moderate_comment" => comments::moderate_comment(request, page_request).await,
+                "preview" => preview_page(request, page_request).await,
                 "manage_pages" => page::manage_pages(page_request).await,
-                "new_page" => page::new_page(&request, page_request).await,
-                "edit_page" => page::edit_post(&request, page_request).await,
-                "media" => manage_media(&request, page_request).await,
+                "new_page" => page::new_page(request, page_request).await,
+                "edit_page" => page::edit_post(request, page_request).await,
+                "media" => manage_media(request, page_request).await,
                 "profile_update" => activitypub::publish_profile_updates(page_request).await,
                 "publish_posts" => activitypub::publish_posts_from_request(page_request).await,
-                "send_post" => activitypub::send(&request, page_request).await,
+                "send_post" => activitypub::send(request, page_request).await,
                 "activitypub_feed" => activitypub::feed(page_request).await,
-                "tags" => tags::render(&request, page_request).await,
-                "prepublished" => prepublished::prepublished(&request, page_request).await,
-                "templates" => templates::templates(&request, page_request).await,
+                "tags" => tags::render(request, page_request).await,
+                "prepublished" => prepublished::prepublished(request, page_request).await,
+                "templates" => templates::templates(request, page_request).await,
                 "image" => image(page_request),
-                "edit_template" => templates::edit_template(&request, page_request).await,
-                "delete_template" => templates::delete_template(&request, page_request).await,
+                "edit_template" => templates::edit_template(request, page_request).await,
+                "delete_template" => templates::delete_template(request, page_request).await,
                 _ => do_404().await,
             }
         }

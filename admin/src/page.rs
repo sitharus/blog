@@ -71,10 +71,10 @@ pub async fn new_page(
     let common = get_common(&globals, AdminMenuPages::Pages).await?;
 
     if request.method() == "POST" {
-        let req: NewPageRequest = post_body(&request)?;
+        let req: NewPageRequest = post_body(request)?;
         let user_id = globals.session.user_id;
         let invalid_chars = Regex::new(r"[^a-z0-9_-]+")?;
-        let mut initial_slug = if req.slug == "" {
+        let mut initial_slug = if req.slug.is_empty() {
             req.title.clone()
         } else {
             req.slug.clone()

@@ -20,7 +20,7 @@ pub struct Common {
     pub current_query: HashMap<String, String>,
 }
 
-pub async fn get_common<'c>(
+pub async fn get_common(
     globals: &PageGlobals,
     current_page: types::AdminMenuPages,
 ) -> anyhow::Result<Common> {

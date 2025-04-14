@@ -21,8 +21,8 @@ where
     T: Display,
 {
     let params = args
-        .into_iter()
-        .map(|i| format!("{}={}", i.0.as_ref(), i.1.to_string()))
+        .iter()
+        .map(|i| format!("{}={}", i.0.as_ref(), i.1))
         .join("&");
     format!(
         "?action={}&site={}&{}",

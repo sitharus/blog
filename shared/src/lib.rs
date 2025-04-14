@@ -1,3 +1,4 @@
+#[allow(clippy::all)]
 pub mod activities;
 pub mod database;
 pub mod errors;

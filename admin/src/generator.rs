@@ -30,7 +30,7 @@ pub async fn preview_page(
     .fetch_one(&globals.connection_pool)
     .await?;
 
-    let data: PostRequest = post_body(&request)?;
+    let data: PostRequest = post_body(request)?;
 
     let mut tags: Vec<String> = Vec::new();
     if let Some(tag_ids) = data.tags {
@@ -125,7 +125,7 @@ pub async fn regenerate_blog(globals: &PageGlobals) -> anyhow::Result<cgi::Respo
     }
 
     let PageContent { posts, common } = get_content(globals).await?;
-    if posts.len() == 0 {
+    if posts.is_empty() {
         return Ok(redirect_response("dashboard", globals.site_id));
     }
 

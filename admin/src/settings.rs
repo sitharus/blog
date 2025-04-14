@@ -7,7 +7,6 @@ use crate::{
 use anyhow::anyhow;
 use askama::Template;
 use bytes::Bytes;
-use cgi;
 use chrono::Utc;
 use futures_util::stream::once;
 use multer::Multipart;
@@ -25,7 +24,7 @@ struct Settings {
     common: Common,
     settings: SettingsStruct,
 }
-const STRING_FIELDS: [&'static str; 12] = [
+const STRING_FIELDS: [&str; 12] = [
     "blog_name",
     "actor_name",
     "base_url",
@@ -40,8 +39,8 @@ const STRING_FIELDS: [&'static str; 12] = [
     "timezone",
 ];
 
-const FILE_FIELDS: [&'static str; 2] = ["fedi_avatar", "fedi_header"];
-const IMAGE_TYPES: [&'static str; 2] = ["image/jpeg", "image/png"];
+const FILE_FIELDS: [&str; 2] = ["fedi_avatar", "fedi_header"];
+const IMAGE_TYPES: [&str; 2] = ["image/jpeg", "image/png"];
 
 pub async fn render(request: &cgi::Request, globals: PageGlobals) -> anyhow::Result<cgi::Response> {
     if request.method() == "POST" {
