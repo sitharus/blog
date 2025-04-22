@@ -54,6 +54,7 @@ pub async fn render(request: &cgi::Request, globals: PageGlobals) -> anyhow::Res
         let slice = request.body().to_owned();
         let stream = once(async move { Result::<Bytes, Infallible>::Ok(Bytes::from(slice)) });
 
+        let mut editions_enabled = false;
         let mut uploaded = Multipart::new(stream, boundary);
         while let Some(field) = uploaded.next_field().await? {
             let n = field.name().ok_or(anyhow!("No field name!"))?.to_owned();
@@ -66,7 +67,9 @@ pub async fn render(request: &cgi::Request, globals: PageGlobals) -> anyhow::Res
 					globals.site_id
                     )
                     .execute(&globals.connection_pool)
-                            .await?;
+                    .await?;
+            } else if n.as_str() == "editions" {
+                editions_enabled = true;
             } else if FILE_FIELDS.contains(&n.as_str()) {
                 let content_type = field
                     .content_type()
@@ -112,6 +115,14 @@ pub async fn render(request: &cgi::Request, globals: PageGlobals) -> anyhow::Res
             SettingNames::ProfileLastUpdated.to_string(),
             Utc::now().to_rfc3339(),
 				globals.site_id
+        )
+        .execute(&globals.connection_pool)
+        .await?;
+
+        query!(
+            "UPDATE sites SET editions_enabled=$1 WHERE id=$2",
+            editions_enabled,
+            globals.site_id
         )
         .execute(&globals.connection_pool)
         .await?;

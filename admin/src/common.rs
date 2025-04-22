@@ -8,6 +8,7 @@ use crate::types::{self, PageGlobals};
 pub struct Site {
     pub id: i32,
     pub site_name: String,
+    pub editions_enabled: bool,
 }
 
 pub struct Common {
@@ -18,6 +19,7 @@ pub struct Common {
     pub current_site_id: i32,
     pub sites: Vec<Site>,
     pub current_query: HashMap<String, String>,
+    pub editions_enabled: bool,
 }
 
 pub async fn get_common(
@@ -28,9 +30,18 @@ pub async fn get_common(
         .fetch_one(&globals.connection_pool)
         .await?;
 
-    let sites = query_as!(Site, "SELECT id, site_name FROM sites ORDER BY id")
-        .fetch_all(&globals.connection_pool)
-        .await?;
+    let sites = query_as!(
+        Site,
+        "SELECT id, site_name, editions_enabled FROM sites ORDER BY id"
+    )
+    .fetch_all(&globals.connection_pool)
+    .await?;
+
+    let editions_enabled = sites
+        .iter()
+        .find(|s| s.id == globals.site_id)
+        .map(|s| s.editions_enabled)
+        .unwrap_or_default();
 
     let settings = get_settings_struct(&globals.connection_pool, globals.site_id).await?;
     let media_base_url = settings.media_base_url.clone();
@@ -43,5 +54,6 @@ pub async fn get_common(
         current_site_id: globals.site_id,
         sites,
         current_query: globals.query.clone(),
+        editions_enabled,
     })
 }
