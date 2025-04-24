@@ -99,14 +99,14 @@ pub async fn load_templates(
 
     tera.register_filter("posturl", post_url);
     tera.register_filter("staticurl", static_url);
-    tera.register_filter("format_rfc3339_date", format_rfc3339_date);
+    tera.register_filter("format_rfc3339_date", RFC3339Format::new(tz));
     tera.register_filter("format_rfc3339_datetime", format_rfc3339_datetime);
-    tera.register_filter("format_rfc2822_date", format_rfc2822_date);
+    tera.register_filter("format_rfc2822_date", RFC2822Format::new(tz));
     tera.register_filter("format_rfc2822_datetime", format_rfc2822_datetime);
-    tera.register_filter("month_name", month_name);
-    tera.register_filter("format_human_date", format_human_date);
-    tera.register_filter("format_weekday", format_weekday);
-    tera.register_filter("year", year);
+    tera.register_filter("month_name", MonthNameFormat::new(tz));
+    tera.register_filter("format_human_date", HumanDateFormat::new(tz));
+    tera.register_filter("format_weekday", WeekDayFormat::new(tz));
+    tera.register_filter("year", YearFormat::new(tz));
     tera.register_filter(
         "format_human_datetime",
         move |v: &Value, _args: &HashMap<String, Value>| format_human_datetime(v, &tz),
@@ -212,16 +212,39 @@ impl Function for BuildUrl {
     }
 }
 
-fn format_rfc3339_date(in_date: &Value, _args: &HashMap<String, Value>) -> ::tera::Result<Value> {
-    let date: NaiveDate = from_value(in_date.clone()).map_err(tera::Error::from)?;
+struct RFC3339Format {
+    timezone: chrono_tz::Tz,
+}
 
-    date.and_hms_opt(0, 0, 0)
-        .ok_or(tera::Error::msg("Could not find midnight UTC"))?
-        .and_local_timezone(Utc)
-        .earliest()
-        .ok_or(tera::Error::msg("Cannot convert to UTC"))
-        .map(|d| d.to_rfc3339())
-        .map(Value::String)
+impl RFC3339Format {
+    pub fn new(timezone: chrono_tz::Tz) -> Self {
+        Self { timezone }
+    }
+}
+
+impl Filter for RFC3339Format {
+    fn filter(&self, in_date: &Value, _args: &HashMap<String, Value>) -> ::tera::Result<Value> {
+        if let Ok(date) = from_value::<NaiveDate>(in_date.clone()) {
+            date.and_hms_opt(0, 0, 0)
+                .ok_or(tera::Error::msg("Could not find midnight UTC"))?
+                .and_local_timezone(self.timezone)
+                .earliest()
+                .ok_or(tera::Error::msg("Cannot convert to UTC"))
+                .map(|d| d.to_rfc3339())
+                .map(Value::String)
+        } else if let Ok(date) = from_value::<DateTime<Utc>>(in_date.clone()) {
+            Ok(Value::String(date.to_rfc3339()))
+        } else {
+            Err(tera::Error::msg(format!(
+                "Cannot format rfc3339 from {}",
+                in_date
+            )))
+        }
+    }
+
+    fn is_safe(&self) -> bool {
+        true
+    }
 }
 
 pub fn format_rfc3339_datetime(
@@ -234,16 +257,38 @@ pub fn format_rfc3339_datetime(
         .map(Value::String)
 }
 
-fn format_rfc2822_date(in_date: &Value, _args: &HashMap<String, Value>) -> ::tera::Result<Value> {
-    let date: NaiveDate = from_value(in_date.clone()).map_err(tera::Error::from)?;
+struct RFC2822Format {
+    timezone: chrono_tz::Tz,
+}
 
-    date.and_hms_opt(0, 0, 0)
-        .ok_or(tera::Error::msg("Could not find midnight UTC"))?
-        .and_local_timezone(Utc)
-        .earliest()
-        .ok_or(tera::Error::msg("Cannot convert to UTC"))
-        .map(|d| d.to_rfc2822())
-        .map(Value::String)
+impl RFC2822Format {
+    pub fn new(timezone: chrono_tz::Tz) -> Self {
+        Self { timezone }
+    }
+}
+impl Filter for RFC2822Format {
+    fn filter(&self, in_date: &Value, _args: &HashMap<String, Value>) -> ::tera::Result<Value> {
+        if let Ok(date) = from_value::<NaiveDate>(in_date.clone()) {
+            date.and_hms_opt(0, 0, 0)
+                .ok_or(tera::Error::msg("Could not find midnight UTC"))?
+                .and_local_timezone(self.timezone)
+                .earliest()
+                .ok_or(tera::Error::msg("Cannot convert to UTC"))
+                .map(|d| d.to_rfc2822())
+                .map(Value::String)
+        } else if let Ok(date) = from_value::<DateTime<Utc>>(in_date.clone()) {
+            Ok(Value::String(date.to_rfc2822()))
+        } else {
+            Err(tera::Error::msg(format!(
+                "Cannot format rfc2822 from {}",
+                in_date
+            )))
+        }
+    }
+
+    fn is_safe(&self) -> bool {
+        true
+    }
 }
 
 pub fn format_rfc2822_datetime(
@@ -256,37 +301,111 @@ pub fn format_rfc2822_datetime(
         .map(Value::String)
 }
 
-fn month_name(in_date_time: &Value, _args: &HashMap<String, Value>) -> tera::Result<Value> {
-    match in_date_time {
-        Value::Number(_) => from_value::<i32>(in_date_time.clone())
-            .map_err(tera::Error::from)
-            .and_then(|n| Month::from_i32(n).ok_or(tera::Error::msg("Not a month")))
-            .map(|n| n.name())
-            .map(|s| Value::String(s.into())),
-        Value::Object(_) | Value::String(_) => from_value::<NaiveDate>(in_date_time.clone())
-            .map_err(tera::Error::from)
-            .map(|m| m.format("%B").to_string())
-            .map(Value::String),
+struct MonthNameFormat {
+    timezone: chrono_tz::Tz,
+}
 
-        _ => Err(tera::Error::msg(format!(
-            "Not formattable as month {:?}",
-            in_date_time
-        ))),
+impl MonthNameFormat {
+    pub fn new(timezone: chrono_tz::Tz) -> Self {
+        MonthNameFormat { timezone }
     }
 }
 
-fn year(in_date_time: &Value, _args: &HashMap<String, Value>) -> tera::Result<Value> {
-    from_value::<NaiveDate>(in_date_time.clone())
-        .map_err(tera::Error::from)
-        .map(|m| m.year())
-        .map(|s| Value::Number(s.into()))
+impl Filter for MonthNameFormat {
+    fn filter(&self, in_date_time: &Value, _args: &HashMap<String, Value>) -> tera::Result<Value> {
+        match in_date_time {
+            Value::Number(_) => from_value::<i32>(in_date_time.clone())
+                .map_err(tera::Error::from)
+                .and_then(|n| Month::from_i32(n).ok_or(tera::Error::msg("Not a month")))
+                .map(|n| n.name())
+                .map(|s| Value::String(s.into())),
+            Value::Object(_) | Value::String(_) => {
+                if let Ok(date) = from_value::<NaiveDate>(in_date_time.clone()) {
+                    Ok(Value::String(date.format("%B").to_string()))
+                } else if let Ok(date) = from_value::<DateTime<Utc>>(in_date_time.clone()) {
+                    Ok(Value::String(
+                        date.with_timezone(&self.timezone).format("%B").to_string(),
+                    ))
+                } else {
+                    Err(tera::Error::msg(format!(
+                        "Could not extract month from {}",
+                        in_date_time
+                    )))
+                }
+            }
+            _ => Err(tera::Error::msg(format!(
+                "Not formattable as month {:?}",
+                in_date_time
+            ))),
+        }
+    }
+
+    fn is_safe(&self) -> bool {
+        true
+    }
 }
 
-fn format_human_date(in_date_time: &Value, _args: &HashMap<String, Value>) -> tera::Result<Value> {
-    from_value::<NaiveDate>(in_date_time.clone())
-        .map_err(tera::Error::from)
-        .map(|date_time| date_time.format("%A, %-d %B, %C%y").to_string())
-        .map(Value::String)
+struct YearFormat {
+    timezone: chrono_tz::Tz,
+}
+
+impl YearFormat {
+    pub fn new(timezone: chrono_tz::Tz) -> Self {
+        YearFormat { timezone }
+    }
+}
+
+impl Filter for YearFormat {
+    fn filter(&self, in_date_time: &Value, _args: &HashMap<String, Value>) -> tera::Result<Value> {
+        if let Ok(date) = from_value::<NaiveDate>(in_date_time.clone()) {
+            Ok(Value::Number(date.year().into()))
+        } else if let Ok(date) = from_value::<DateTime<Utc>>(in_date_time.clone()) {
+            Ok(Value::Number(
+                date.with_timezone(&self.timezone).year().into(),
+            ))
+        } else {
+            Err(tera::Error::msg(format!(
+                "Could not format year from {}",
+                in_date_time.clone()
+            )))
+        }
+    }
+
+    fn is_safe(&self) -> bool {
+        true
+    }
+}
+
+struct HumanDateFormat {
+    timezone: chrono_tz::Tz,
+}
+
+impl HumanDateFormat {
+    pub fn new(timezone: chrono_tz::Tz) -> Self {
+        HumanDateFormat { timezone }
+    }
+}
+
+impl Filter for HumanDateFormat {
+    fn filter(&self, in_date_time: &Value, _args: &HashMap<String, Value>) -> tera::Result<Value> {
+        if let Ok(date) = from_value::<NaiveDate>(in_date_time.clone()) {
+            Ok(Value::String(date.format("%A, %-d %B, %C%y").to_string()))
+        } else if let Ok(date) = from_value::<DateTime<Utc>>(in_date_time.clone()) {
+            Ok(Value::String(
+                date.with_timezone(&self.timezone)
+                    .format("%A, %-d %B, %C%y")
+                    .to_string(),
+            ))
+        } else {
+            Err(tera::Error::msg(format!(
+                "Could not date format {}",
+                in_date_time
+            )))
+        }
+    }
+    fn is_safe(&self) -> bool {
+        true
+    }
 }
 
 fn format_human_datetime(in_date_time: &Value, tz: &Tz) -> tera::Result<Value> {
@@ -301,12 +420,44 @@ fn format_human_datetime(in_date_time: &Value, tz: &Tz) -> tera::Result<Value> {
         .map(Value::String)
 }
 
-fn format_weekday(in_date: &Value, _args: &HashMap<String, Value>) -> tera::Result<Value> {
-    from_value::<NaiveDate>(in_date.clone())
-        .map(|date| format!("{} {}", date.weekday(), Ordinal(date.day())))
-        .map(Value::String)
-        .map_err(tera::Error::from)
+struct WeekDayFormat {
+    timezone: chrono_tz::Tz,
 }
+
+impl WeekDayFormat {
+    pub fn new(timezone: chrono_tz::Tz) -> Self {
+        Self { timezone }
+    }
+}
+
+impl Filter for WeekDayFormat {
+    fn filter(&self, in_date: &Value, _args: &HashMap<String, Value>) -> tera::Result<Value> {
+        if let Ok(date) = from_value::<NaiveDate>(in_date.clone()) {
+            Ok(Value::String(format!(
+                "{} {}",
+                date.weekday(),
+                Ordinal(date.day())
+            )))
+        } else if let Ok(date) = from_value::<DateTime<Utc>>(in_date.clone()) {
+            let tz_date = date.with_timezone(&self.timezone);
+            Ok(Value::String(format!(
+                "{} {}",
+                tz_date.weekday(),
+                Ordinal(tz_date.day())
+            )))
+        } else {
+            Err(tera::Error::msg(format!(
+                "Cannot extract weekday from {}",
+                in_date
+            )))
+        }
+    }
+
+    fn is_safe(&self) -> bool {
+        true
+    }
+}
+
 /*
 
 pub fn format_weekday(date: &NaiveDate) -> ::askama::Result<String> {

@@ -5,7 +5,7 @@
 <meta content="article" property="og:type" />
 <meta content="{{post.title}}" property="og:title" />
 <meta content="{{post|posturl}}" property="og:url" />
-<meta content="{{post.post_date|format_rfc3339_date}}" property="og:published_time" />
+<meta content="{{post.post_date|format_rfc3339_datetime}}" property="og:published_time" />
 
 {% if post.summary %}
 <meta content="{{post.summary}}" property="og:description">
