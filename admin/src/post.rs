@@ -14,7 +14,7 @@ use super::response;
 use super::types::PostRequest;
 use anyhow::anyhow;
 use askama::Template;
-use chrono::{offset::Utc, DateTime};
+use chrono::{offset::Utc, NaiveDateTime};
 use regex::Regex;
 use sqlx::{query, query_as, PgPool};
 
@@ -33,7 +33,7 @@ struct NewPost<'a> {
     song: Option<&'a str>,
     mood: Option<&'a str>,
     summary: Option<&'a str>,
-    date: &'a DateTime<Utc>,
+    date: &'a NaiveDateTime,
     status: PostStatus,
     tags: Vec<i32>,
     all_tags: Vec<DisplayTag>,
@@ -49,7 +49,7 @@ struct EditPost<'a> {
     song: Option<&'a str>,
     mood: Option<&'a str>,
     summary: Option<&'a str>,
-    date: &'a DateTime<Utc>,
+    date: &'a NaiveDateTime,
     status: PostStatus,
     tags: Vec<i32>,
     all_tags: Vec<DisplayTag>,
@@ -96,6 +96,14 @@ pub async fn new_post(
             .trim()
             .replace(" ", "_");
         let final_slug: &str = &slug.to_owned();
+
+        let post_date = req
+            .date
+            .and_local_timezone(common.settings.timezone)
+            .earliest()
+            .ok_or(anyhow!("Could not set timezone on post time"))?
+            .to_utc();
+
         let result = sqlx::query!(
             r#"
 INSERT INTO posts(
@@ -109,7 +117,7 @@ RETURNING id"#,
             req.title,
             req.body,
             &req.status as &PostStatus,
-            req.date,
+            post_date,
             req.song,
             req.mood,
             req.summary,
@@ -148,6 +156,10 @@ RETURNING id"#,
         };
     }
 
+    let date = &Utc::now()
+        .with_timezone(&common.settings.timezone)
+        .naive_local();
+
     let content = NewPost {
         common,
         title: "",
@@ -157,7 +169,7 @@ RETURNING id"#,
         song: None,
         summary: None,
         status: PostStatus::Draft,
-        date: &Utc::now(),
+        date,
         tags: vec![],
         all_tags: get_tags(&globals.connection_pool).await?,
     };
@@ -173,16 +185,24 @@ pub async fn edit_post(
         .get("id")
         .ok_or(anyhow!("Could not find id"))
         .and_then(|s| parse_into(s))?;
+    let common = get_common(&globals, AdminMenuPages::Posts).await?;
 
     if request.method() == "POST" {
         let req: PostRequest = post_body(request)?;
         let status = req.status.clone();
+
+        let post_date = req
+            .date
+            .and_local_timezone(common.settings.timezone)
+            .earliest()
+            .ok_or(anyhow!("Could not set timezone on post time"))?
+            .to_utc();
         query!(
             "UPDATE posts SET title=$1, body=$2, state=$3, post_date = $4, url_slug=$5, song=$6, mood=$7, summary=$8 WHERE id=$9 AND site_id=$10",
             req.title,
             req.body,
             req.status as PostStatus,
-            req.date,
+            post_date,
             req.slug,
             req.song,
             req.mood,
@@ -226,14 +246,17 @@ GROUP BY posts.id"#,
     .fetch_one(&globals.connection_pool)
     .await?;
 
-    let common = get_common(&globals, AdminMenuPages::Posts).await?;
+    let post_date = post
+        .post_date
+        .with_timezone(&common.settings.timezone)
+        .naive_local();
 
     let content = EditPost {
         common,
         title: &post.title,
         body: &post.body,
         status: post.state,
-        date: &post.post_date,
+        date: &post_date,
         slug: &post.url_slug,
         mood: post.mood.as_deref(),
         song: post.song.as_deref(),

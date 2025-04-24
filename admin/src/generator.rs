@@ -46,9 +46,16 @@ pub async fn preview_page(
         }
     }
 
+    let post_date = data
+        .date
+        .and_local_timezone(common.timezone)
+        .earliest()
+        .ok_or(anyhow::anyhow!("Could not set timezone on post time"))?
+        .to_utc();
+
     let post = HydratedPost {
         id: 0,
-        post_date: data.date,
+        post_date,
         url_slug: "preview".into(),
         title: data.title,
         body: data.body,
