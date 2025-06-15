@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
-use chrono::{offset::Utc, DateTime, Datelike, Month, NaiveDate};
+use chrono::{DateTime, Datelike, Month, NaiveDate, offset::Utc};
 use chrono_tz::Tz;
-use latex2mathml::{latex_to_mathml, DisplayStyle};
+use latex2mathml::{DisplayStyle, latex_to_mathml};
 use num_traits::FromPrimitive;
 use ordinal::Ordinal;
-use pulldown_cmark::{CodeBlockKind, Event, Options, Parser, Tag};
-use serde_json::{from_value, Value};
+use pulldown_cmark::{CodeBlockKind, Event, Options, Parser, Tag, TagEnd};
+use serde_json::{Value, from_value};
 use sqlx::PgPool;
 use tera::{Filter, Function, Tera};
 
@@ -476,8 +476,9 @@ fn format_markdown(
         .get("before_cut")
         .and_then(|v| from_value::<bool>(v.clone()).ok())
         .unwrap_or(false);
-    let mut current_image: String = String::new();
-    let mut in_image = false;
+    let mut current_image: Option<Tag> = None;
+    let mut image_text = String::new();
+    let mut in_codeblock = false;
     let mut options = Options::empty();
     options.insert(Options::ENABLE_STRIKETHROUGH);
     options.insert(Options::ENABLE_SMART_PUNCTUATION);
@@ -489,45 +490,25 @@ fn format_markdown(
         the image lookup once.
         */
         Event::Start(tag) => match tag {
-            Tag::Image(_link_type, destination, title) if destination.starts_with("!!") => {
-                let dest_args: Vec<&str> = destination.split("?").collect();
-                let image_id: i32 = dest_args[0][2..].parse().unwrap();
-                let args: HashMap<String, String> = if dest_args.len() > 1 {
-                    serde_querystring::from_str(
-                        dest_args[1],
-                        serde_querystring::ParseMode::UrlEncoded,
-                    )
-                    .unwrap()
-                } else {
-                    HashMap::new()
-                };
-
-                let image = media.get(&image_id).unwrap();
-                let dest = format!("{}{}", media_base_url, image.metadata.fullsize_name);
-                let mut html = String::new();
-
-                html.push_str("<picture>");
-                html.push_str(&format!(
-                    r#"<source srcset="{}{}" type="{}">"#,
-                    media_base_url, image.metadata.fullsize_name, image.metadata.content_type
-                ));
-
-                in_image = true;
-                current_image.push_str(&format!(r#"<img src="{}" title="{}""#, dest, title));
-
-                if let Some(a) = args.get("class") {
-                    current_image.push_str(&format!(r#" class="{}" "#, a));
-                }
-
+            Tag::Image {
+                link_type: _,
+                dest_url,
+                title: _,
+                id: _,
+            } if dest_url.starts_with("!!") => {
+                current_image = Some(tag.clone());
                 Event::Text("".into())
             }
-            Tag::CodeBlock(CodeBlockKind::Fenced(lang)) if !lang.is_empty() => Event::Html(
-                format!(
-                    "<pre class=\"fenced-code language-{}\"><code class=\"language-{}\">",
-                    lang, lang
+            Tag::CodeBlock(CodeBlockKind::Fenced(lang)) if !lang.is_empty() => {
+                in_codeblock = true;
+                Event::Html(
+                    format!(
+                        "<pre class=\"fenced-code language-{}\"><code class=\"language-{}\">",
+                        lang, lang
+                    )
+                    .into(),
                 )
-                .into(),
-            ),
+            }
             _ => event,
         },
         Event::Code(code) if code.starts_with("$$") && code.ends_with("$$") => {
@@ -535,19 +516,51 @@ fn format_markdown(
                 .unwrap_or("Bad Math!".into());
             Event::Html(mathml.into())
         }
-        Event::Text(txt) if in_image => {
-            current_image.push_str(&format!(r#" alt="{}" "#, txt));
+        Event::Text(txt) if current_image.is_some() => {
+            image_text.push_str(&format!(r#" alt="{}" "#, txt));
             Event::Text("".into())
         }
         Event::End(tag) => match tag {
-            Tag::Image(_link_type, destination, _title) if destination.starts_with("!!") => {
-                current_image.push_str("></picture>");
-                let tag = current_image.clone();
-                current_image = String::new();
-                in_image = false;
-                Event::Html(tag.into())
+            TagEnd::Image if current_image.is_some() => {
+                if let Some(Tag::Image {
+                    dest_url,
+                    title,
+                    id: _,
+                    link_type: _,
+                }) = current_image.clone()
+                {
+                    let dest_args: Vec<&str> = dest_url.split("?").collect();
+                    let image_id: i32 = dest_args[0][2..].parse().unwrap();
+                    let args: HashMap<String, String> = if dest_args.len() > 1 {
+                        serde_querystring::from_str(
+                            dest_args[1],
+                            serde_querystring::ParseMode::UrlEncoded,
+                        )
+                        .unwrap()
+                    } else {
+                        HashMap::new()
+                    };
+
+                    let image = media.get(&image_id).unwrap();
+                    let dest = format!("{}{}", media_base_url, image.metadata.fullsize_name);
+                    let mut html = String::new();
+
+                    html.push_str(&format!(r#"<img src="{}" title="{}""#, dest, title));
+
+                    if let Some(a) = args.get("class") {
+                        html.push_str(&format!(r#" class="{}" "#, a));
+                    }
+
+                    html.push_str("></picture>");
+                    current_image = None;
+                    image_text = String::new();
+                    Event::Html(html.into())
+                } else {
+                    Event::Html("".into())
+                }
             }
-            Tag::CodeBlock(CodeBlockKind::Fenced(lang)) if !lang.is_empty() => {
+            TagEnd::CodeBlock if in_codeblock => {
+                in_codeblock = false;
                 Event::Html("</code></pre>".into())
             }
             _ => event,
