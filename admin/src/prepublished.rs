@@ -3,9 +3,9 @@ use std::collections::HashMap;
 use anyhow::{anyhow, bail};
 use cgi::{binary_response, html_response, text_response};
 use chrono::Datelike;
-use serde_json::{from_value, Value};
+use serde_json::{Value, from_value};
 use shared::generator::index::index_content;
-use shared::generator::static_content::{get_static_content, StaticContent};
+use shared::generator::static_content::{StaticContent, get_static_content};
 use shared::generator::{
     get_common, pages::generate_single_page, templates::load_templates, types::Generator,
 };
@@ -13,7 +13,7 @@ use shared::types::{CommonData, HydratedPost};
 use shared::utils::parse_into;
 use tera::Function;
 
-use crate::generator::{get_content, PageContent};
+use crate::generator::{PageContent, get_content};
 use crate::types::PageGlobals;
 
 pub async fn prepublished(
@@ -55,8 +55,8 @@ async fn page(globals: PageGlobals) -> anyhow::Result<cgi::Response> {
         .ok_or(anyhow!("No ID"))
         .and_then(|s| parse_into(s))?;
     let common = get_common(&globals.connection_pool, globals.site_id).await?;
-    let gen = get_generator(&globals, &common).await?;
-    let result = generate_single_page(page_id, &gen).await?;
+    let generator = get_generator(&globals, &common).await?;
+    let result = generate_single_page(page_id, &generator).await?;
 
     Ok(html_response(200, result))
 }
@@ -71,20 +71,20 @@ async fn index(globals: PageGlobals) -> anyhow::Result<cgi::Response> {
         .ok_or(anyhow::anyhow!("No post!"))?
         .iter()
         .collect();
-    let gen = get_generator(&globals, &common).await?;
+    let generator = get_generator(&globals, &common).await?;
 
-    let result = index_content(chunk, &gen, page_number, total_pages)?;
+    let result = index_content(chunk, &generator, page_number, total_pages)?;
     Ok(html_response(200, result))
 }
 
 async fn staticpath(globals: PageGlobals) -> anyhow::Result<cgi::Response> {
     if let Some(content) = globals.query.get("static") {
         let common = get_common(&globals.connection_pool, globals.site_id).await?;
-        let gen = get_generator(&globals, &common).await?;
+        let generator = get_generator(&globals, &common).await?;
         let StaticContent {
             content,
             content_type,
-        } = get_static_content(&gen, content).await?;
+        } = get_static_content(&generator, content).await?;
         Ok(binary_response(
             200,
             Some(content_type.as_str()),

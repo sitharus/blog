@@ -54,14 +54,14 @@ AND posts.id=$1
             let common = get_common(&connection, post.site_id).await?;
             let tera = load_templates(&connection, post.site_id, &common).await?;
 
-            let gen = Generator {
+            let generator = Generator {
                 output_path: "",
                 pool: &connection,
                 common: &common,
                 tera,
                 site_id: post.site_id,
             };
-            let html = generate_post_html(&gen, &post).await?;
+            let html = generate_post_html(&generator, &post).await?;
 
             Ok(html_response(200, html))
         }

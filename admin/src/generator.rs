@@ -70,14 +70,14 @@ pub async fn preview_page(
 
     let tera = load_templates(&globals.connection_pool, globals.site_id, &common).await?;
 
-    let gen = Generator {
+    let generator = Generator {
         output_path: "",
         pool: &globals.connection_pool,
         common: &common,
         tera,
         site_id: globals.site_id,
     };
-    let post_page = generate_post_html(&gen, &post).await?;
+    let post_page = generate_post_html(&generator, &post).await?;
 
     Ok(cgi::html_response(200, post_page))
 }
@@ -137,7 +137,7 @@ pub async fn regenerate_blog(globals: &PageGlobals) -> anyhow::Result<cgi::Respo
     }
 
     let tera = load_templates(&globals.connection_pool, globals.site_id, &common).await?;
-    let gen = Generator {
+    let generator = Generator {
         output_path: &output_path,
         pool: &globals.connection_pool,
         common: &common,
@@ -146,22 +146,22 @@ pub async fn regenerate_blog(globals: &PageGlobals) -> anyhow::Result<cgi::Respo
     };
 
     for post in &posts {
-        generate_post_page(&gen, post).await?;
+        generate_post_page(&generator, post).await?;
     }
 
     generate_index_pages(
         posts.iter().collect::<Vec<&HydratedPost>>().into_iter(),
-        &gen,
+        &generator,
     )
     .await?;
 
-    generate_month_index_pages(&posts, &gen).await?;
-    generate_year_index_pages(&posts, &gen).await?;
-    generate_rss_feed(&posts, &gen).await?;
-    generate_atom_feed(&posts, &gen).await?;
-    generate_tag_indexes(&posts, &gen).await?;
-    generate_pages(&gen).await?;
-    generate_static(&gen, &static_output_path).await?;
+    generate_month_index_pages(&posts, &generator).await?;
+    generate_year_index_pages(&posts, &generator).await?;
+    generate_rss_feed(&posts, &generator).await?;
+    generate_atom_feed(&posts, &generator).await?;
+    generate_tag_indexes(&posts, &generator).await?;
+    generate_pages(&generator).await?;
+    generate_static(&generator, &static_output_path).await?;
 
     Ok(redirect_response("dashboard", globals.site_id))
 }
