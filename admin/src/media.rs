@@ -2,7 +2,7 @@ use anyhow::anyhow;
 use askama::Template;
 use bytes::Bytes;
 use futures_util::stream::once;
-use image::{imageops::FilterType, io::Reader as ImageReader};
+use image::{ImageReader, imageops::FilterType};
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use multer::Multipart;
@@ -12,7 +12,7 @@ use sqlx::{query, types::Json};
 use std::io::Cursor;
 use std::{collections::HashMap, convert::Infallible};
 
-use crate::common::{get_common, Common};
+use crate::common::{Common, get_common};
 use crate::types::PageGlobals;
 
 #[derive(Template)]

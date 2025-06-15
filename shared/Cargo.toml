@@ -25,4 +25,4 @@ latex2mathml = { workspace = true }
 url = { workspace = true }
 tera = { workspace = true }
 
-itertools = "0.10.5"
+itertools = "0.14"

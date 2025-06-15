@@ -15,7 +15,7 @@ resolver = "2"
 sqlx = { version = "0.8", features = ["postgres", "runtime-tokio-rustls", "json", "uuid", "chrono"] }
 anyhow = {version = "1", features=["backtrace"]}
 askama = { version = "0.14" }
-cgi = "0.8.0"
+cgi = "0.8"
 chrono = { version = "0.4", features = ["clock", "serde"] }
 chrono-tz = "0.10"
 serde = { version = "1.0", features = ["derive"] }
@@ -27,12 +27,12 @@ pulldown-cmark = { version = "0.13", default-features = false, features = ["simd
 ammonia = "4"
 tokio = { version = "1", features = ["full"] }
 rustls = "0.23"
-lazy_static = "1.5.0"
+lazy_static = "1.5"
 uuid = { version = "1", features = ["v4","v7"] }
 thiserror = "2"
-url = { version = "2.4.0", features = ["serde"] }
+url = { version = "2", features = ["serde"] }
 latex2mathml = "0.2.3"
-tera = "1.19.1"
+tera = "1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
