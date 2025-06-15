@@ -1,11 +1,11 @@
 use askama::Template;
-use http::Method;
+use cgi::http::Method;
 use serde::Deserialize;
 use shared::utils::{post_body, render_html};
 use sqlx::{query, query_as};
 
 use crate::{
-    common::{get_common, Common},
+    common::{Common, get_common},
     types::{AdminMenuPages, PageGlobals},
 };
 

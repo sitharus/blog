@@ -1,3 +1,5 @@
+use cgi::http;
+
 pub fn redirect_response(destination: &str, site_id: i32) -> cgi::Response {
     let body: Vec<u8> = "Redirecting".as_bytes().to_vec();
     http::response::Builder::new()

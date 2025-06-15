@@ -1,7 +1,8 @@
 use anyhow::anyhow;
-use chrono::{naive::Days, offset::Utc, DateTime};
+use cgi::http;
+use chrono::{DateTime, naive::Days, offset::Utc};
 use serde::Deserialize;
-use serde_querystring::{from_str, ParseMode};
+use serde_querystring::{ParseMode, from_str};
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -44,10 +45,10 @@ impl std::error::Error for SessionError {
 
 pub async fn session_id(connection: &PgPool, request: &cgi::Request) -> anyhow::Result<Session> {
     let headers = request.headers();
-    if !headers.contains_key(http::header::COOKIE) {
+    if !headers.contains_key(cgi::http::header::COOKIE) {
         return Err(anyhow!(SessionError::NotFound));
     }
-    let cookie_header = headers[http::header::COOKIE].to_str();
+    let cookie_header = headers[cgi::http::header::COOKIE].to_str();
     match cookie_header {
         Ok(cookie_str) => {
             let cookie_parts: Result<Cookie, _> = from_str(cookie_str, ParseMode::UrlEncoded);

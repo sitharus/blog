@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use anyhow::{anyhow, bail};
 use askama::Template;
+use cgi::http::Method;
 use chrono::{DateTime, Utc};
-use http::Method;
 use shared::{
     activities::{self, Activity, Actor, Update},
     settings::get_settings_struct,
@@ -14,7 +14,7 @@ use uuid::Uuid;
 
 use crate::filters;
 use crate::{
-    common::{get_common, Common},
+    common::{Common, get_common},
     types::PageGlobals,
 };
 

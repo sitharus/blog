@@ -2,12 +2,13 @@ use std::collections::HashMap;
 
 use anyhow::{anyhow, bail};
 use askama::Template;
+use cgi::http;
 use generator::preview_page;
 use lazy_static::lazy_static;
 use media::manage_media;
 use response::{css_response, font_response};
 use serde::Deserialize;
-use serde_querystring::{from_bytes, ParseMode};
+use serde_querystring::{ParseMode, from_bytes};
 use session::SessionError;
 use shared::{
     database,

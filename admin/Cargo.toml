@@ -15,7 +15,6 @@ serde = { workspace = true }
 sqlx = { workspace = true }
 ordinal = { workspace = true }
 chrono = { workspace = true  }
-http = { workspace = true }
 serde-querystring = { workspace = true }
 serde_json = { workspace = true }
 ammonia = { workspace = true }

@@ -2,15 +2,15 @@ use std::collections::HashMap;
 
 use anyhow::bail;
 use chrono::Utc;
-use serde_querystring::{from_str, ParseMode};
+use serde_querystring::{ParseMode, from_str};
 use sqlx::PgPool;
 
 pub async fn has_valid_session(connection: &PgPool, request: &cgi::Request) -> anyhow::Result<()> {
     let headers = request.headers();
-    if !headers.contains_key(http::header::COOKIE) {
+    if !headers.contains_key(cgi::http::header::COOKIE) {
         bail!("No cookie!") // Until I update the cookie...
     } else {
-        let cookie_header = headers[http::header::COOKIE].to_str();
+        let cookie_header = headers[cgi::http::header::COOKIE].to_str();
         match cookie_header {
             Ok(cookie_str) => {
                 let cookie_parts: HashMap<String, String> =
