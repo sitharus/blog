@@ -75,6 +75,16 @@
 			ActivityPub Private Key (PEM format, no password)
 			<textarea name="fedi_private_key_pem" cols="50">{{settings.fedi_private_key_pem}}</textarea>
 		</label>
+
+		<label>
+			BlueSky username
+			<input type="text" value="{{settings.bsky_username | or_default}}" name="bsky_username" />
+		</label>
+
+		<label>
+			BlueSky password
+			<input type="text" value="{{settings.bsky_password | or_default}}" name="bsky_password" />
+		</label>
 		<button type="submit">Save</button>
 
 	</form>

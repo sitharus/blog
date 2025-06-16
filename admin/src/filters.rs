@@ -36,3 +36,7 @@ pub fn format_form_date(
 ) -> ::askama::Result<String> {
     Ok(date_time.format("%Y-%m-%d %H:%M:%S").to_string())
 }
+
+pub fn or_default(content: &Option<String>, _: &dyn askama::Values) -> ::askama::Result<String> {
+    Ok(content.clone().unwrap_or("".into()))
+}

@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use sqlx::{query, PgPool};
+use sqlx::{PgPool, query};
 
 use std::{
     collections::HashMap,
@@ -23,6 +23,8 @@ pub enum SettingNames {
     FediAvatar,
     FediHeader,
     ProfileLastUpdated,
+    BskyUsername,
+    BskyPassword,
 }
 const BLOG_NAME: &str = "blog_name";
 const ACTOR_NAME: &str = "actor_name";
@@ -38,6 +40,8 @@ const FEDI_AVATAR: &str = "fedi_avatar";
 const FEDI_HEADER: &str = "fedi_header";
 const TIMEZONE: &str = "timezone";
 const PROFILE_LAST_UPDATED: &str = "profile_last_updated";
+const BSKY_USERNAME: &str = "bsky_username";
+const BSKY_PASSWORD: &str = "bsky_password";
 
 impl Display for SettingNames {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -56,6 +60,8 @@ impl Display for SettingNames {
             SettingNames::FediAvatar => FEDI_AVATAR,
             SettingNames::FediHeader => FEDI_HEADER,
             SettingNames::ProfileLastUpdated => PROFILE_LAST_UPDATED,
+            SettingNames::BskyUsername => BSKY_USERNAME,
+            SettingNames::BskyPassword => BSKY_PASSWORD,
         };
         write!(f, "{}", name)
     }
@@ -83,6 +89,8 @@ impl FromStr for SettingNames {
             FEDI_AVATAR => Ok(SettingNames::FediAvatar),
             FEDI_HEADER => Ok(SettingNames::FediHeader),
             PROFILE_LAST_UPDATED => Ok(SettingNames::ProfileLastUpdated),
+            BSKY_USERNAME => Ok(SettingNames::BskyUsername),
+            BSKY_PASSWORD => Ok(SettingNames::BskyPassword),
             _ => Err(ParseSettingNamesError),
         }
     }
@@ -104,6 +112,8 @@ pub struct Settings {
     pub fedi_avatar: Option<String>,
     pub timezone: chrono_tz::Tz,
     pub profile_last_updated: chrono::DateTime<Utc>,
+    pub bsky_username: Option<String>,
+    pub bsky_password: Option<String>,
 }
 
 impl Settings {
@@ -202,5 +212,7 @@ pub async fn get_settings_struct(connection: &PgPool, site_id: i32) -> anyhow::R
                     .ok()
             })
             .unwrap_or(Utc::now()),
+        bsky_username: all_settings.get(&SettingNames::BskyUsername).cloned(),
+        bsky_password: all_settings.get(&SettingNames::BskyPassword).cloned(),
     })
 }

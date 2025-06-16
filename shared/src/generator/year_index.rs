@@ -5,7 +5,7 @@ use num_traits::FromPrimitive;
 use serde::Serialize;
 use tera::Context;
 use tokio::{
-    fs::{create_dir_all, File},
+    fs::{File, create_dir_all},
     io::AsyncWriteExt,
 };
 
@@ -45,7 +45,7 @@ pub async fn generate_year_index_pages(
         let mut grouped = Vec::new();
         for (key, group) in &month_posts
             .into_iter()
-            .group_by(|p| Month::from_u32(p.post_date.month()).unwrap())
+            .chunk_by(|p| Month::from_u32(p.post_date.month()).unwrap())
         {
             grouped.push((key, group.collect()));
         }
