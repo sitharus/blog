@@ -1,17 +1,12 @@
-use atrium_api::{
-    app::bsky::{
-        embed::external::{ExternalData, MainData},
-        feed::post::{RecordData, RecordEmbedRefs},
-    },
-    types::Union,
-};
-use bsky_sdk::{BskyAgent, api::types::string::Datetime, rich_text::RichText};
+use bsky::{BSky, Embeds, External, Post};
 use shared::{
     database::connect_db,
     settings::{Settings, get_settings_struct},
     utils::blog_post_url,
 };
 use sqlx::{PgPool, query};
+
+mod bsky;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -26,16 +21,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 async fn send_posts_for_site(connection: &PgPool, site_id: i32) -> Result<(), anyhow::Error> {
-    let agent = BskyAgent::builder().build().await?;
     let settings = get_settings_struct(connection, site_id).await?;
+    let bsky_url = reqwest::Url::parse("https://bsky.social")?;
     if let (Some(bsky_username), Some(bsky_password)) = (
         settings.bsky_username.clone(),
         settings.bsky_password.clone(),
     ) {
-        agent.login(bsky_username, bsky_password).await?;
+        let bsky = BSky::login(&bsky_url, &bsky_username, &bsky_password).await?;
+
         let ids_to_post = find_posts(connection).await?;
         for post_id in ids_to_post {
-            post_to_bsky(connection, &settings, post_id, site_id, &agent).await?;
+            post_to_bsky(connection, &settings, post_id, site_id, &bsky).await?;
         }
     }
     Ok(())
@@ -46,7 +42,7 @@ async fn post_to_bsky(
     settings: &Settings,
     post_id: i32,
     site_id: i32,
-    agent: &BskyAgent,
+    agent: &BSky,
 ) -> Result<(), anyhow::Error> {
     let post = query!("SELECT id, title, summary, url_slug, post_date FROM posts p WHERE p.id = $1 AND p.site_id = $2", post_id, site_id).fetch_one(connection).await?;
 
@@ -64,39 +60,8 @@ async fn post_to_bsky(
 
     let text = format!("A new post has been published! \r\n{}", post.title,);
 
-    let embed = MainData {
-        external: ExternalData {
-            title: post.title,
-            description: summary,
-            thumb: None,
-            uri: url,
-        }
-        .into(),
-    };
-
-    let rt = RichText::new_with_detect_facets(text).await?;
-    agent
-        .create_record(RecordData {
-            created_at: Datetime::new(post.post_date.fixed_offset()),
-            embed: Some(Union::Refs(RecordEmbedRefs::AppBskyEmbedExternalMain(
-                Box::new(embed.into()),
-            ))),
-            entities: None,
-            facets: rt.facets,
-            labels: None,
-            langs: None,
-            reply: None,
-            tags: None,
-            text: rt.text,
-        })
-        .await?;
-
-    query!(
-        "INSERT INTO bsky_outbox(post_id, posted_at) VALUES($1, CURRENT_TIMESTAMP)",
-        Some::<i64>(post.id.into())
-    )
-    .execute(connection)
-    .await?;
+    let embed = Embeds::External(External::new(url, post.title, summary, None));
+    agent.new_post(Post::new(text, Some(embed))).await?;
 
     Ok(())
 }
