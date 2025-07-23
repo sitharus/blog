@@ -296,8 +296,13 @@ dependencies = [
 name = "atproto"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "atrium-api",
  "bsky-sdk",
+ "chrono",
+ "serde",
  "shared",
+ "sqlx",
  "tokio",
 ]
 

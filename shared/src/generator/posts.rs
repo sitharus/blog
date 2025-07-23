@@ -1,11 +1,11 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use chrono::{Datelike, Month};
 use num_traits::FromPrimitive;
 use serde::Serialize;
 use sqlx::{query, query_as, types::Json};
 use tera::Context;
 use tokio::{
-    fs::{create_dir_all, File},
+    fs::{File, create_dir_all},
     io::AsyncWriteExt,
 };
 
@@ -79,5 +79,6 @@ pub async fn generate_post_page(generator: &Generator<'_>, post: &HydratedPost) 
             }
         }
     }
+
     Ok(())
 }

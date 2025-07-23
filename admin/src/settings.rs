@@ -25,7 +25,7 @@ struct Settings {
     common: Common,
     settings: SettingsStruct,
 }
-const STRING_FIELDS: [&str; 12] = [
+const STRING_FIELDS: [&str; 14] = [
     "blog_name",
     "actor_name",
     "base_url",
@@ -38,6 +38,8 @@ const STRING_FIELDS: [&str; 12] = [
     "fedi_public_key_pem",
     "fedi_private_key_pem",
     "timezone",
+    "bsky_username",
+    "bsky_password",
 ];
 
 const FILE_FIELDS: [&str; 2] = ["fedi_avatar", "fedi_header"];
