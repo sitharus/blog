@@ -61,6 +61,13 @@ async fn post_to_bsky(
     let text = format!("A new post has been published! \r\n{}", post.title,);
 
     let embed = Embeds::External(External::new(url, post.title, summary, None));
+
+    query!(
+        "INSERT INTO bsky_outbox(post_id, posted_at) VALUES ($1, CURRENT_TIMESTAMP)",
+        post.id
+    )
+    .execute(&connection)
+    .await?;
     agent.new_post(Post::new(text, Some(embed))).await?;
 
     Ok(())
