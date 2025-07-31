@@ -66,7 +66,7 @@ async fn post_to_bsky(
         "INSERT INTO bsky_outbox(post_id, posted_at) VALUES ($1, CURRENT_TIMESTAMP)",
         post.id
     )
-    .execute(&connection)
+    .execute(connection)
     .await?;
     agent.new_post(Post::new(text, Some(embed))).await?;
 
