@@ -390,10 +390,7 @@ th:last-child::after {
 .post-top-matter {
   display: grid;
   grid-template-columns: 1fr 1fr;
-
-  & pre {
-    display: inline-block;
-  }
+  font-size-adjust: from-font;
 }
 
 .pagination {
