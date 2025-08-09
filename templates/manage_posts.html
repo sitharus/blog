@@ -6,12 +6,12 @@
 	<section>
 		<div class="pagination">
 			<div>{{ post_count }} posts</div>
-			<div>
+			<div class="pages">
 				{% for page in 1..=page_count %}
 					{% if page == current_page  %}
-						<span> {{ page }} </span>
+						<span>{{ page }}</span>
 					{% else %}
-						<a href="{{ crate::utils::link_to("posts", [("page", page),("items_per_page", items_per_page)], common) }}">
+						<a href="{{ crate::utils::link_to("manage_posts", [("page", page),("items_per_page", items_per_page)], common) }}">
 							{{ page }}
 						</a>
 					{% endif %}

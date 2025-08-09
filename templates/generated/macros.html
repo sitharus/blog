@@ -23,6 +23,12 @@
 		</header>
 		{{ post.body.clone()|format_markdown(common, before_cut.to_owned())|safe }}
 
+		{% if before_cut -%}
+			{% if post.body is cut -%}
+				<a href="{{post|posturl(common)}}">Read more</a>
+			{% endif -%}
+		{% endif %}
+
 		<footer>
 			<div class="greebles">
 				{% if post.song.as_deref().unwrap_or("") != "" %}

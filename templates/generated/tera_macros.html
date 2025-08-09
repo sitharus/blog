@@ -19,6 +19,13 @@
 	</header>
 	{{ post.body|format_markdown(before_cut=before_cut)|safe }}
 
+
+	{% if before_cut -%}
+		{% if post.body is cut -%}
+			<p><a href="{{post|posturl}}">Read more</a></p>
+		{% endif -%}
+	{% endif %}
+
 	<footer>
 		<div class="greebles">
 			{% if post.song %}

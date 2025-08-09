@@ -5,7 +5,7 @@ use shared::{
 };
 
 use crate::{
-    common::{get_common, Common},
+    common::{Common, get_common},
     types::{AdminMenuPages, PageGlobals},
 };
 
@@ -14,9 +14,9 @@ use super::response;
 use super::types::PostRequest;
 use anyhow::anyhow;
 use askama::Template;
-use chrono::{offset::Utc, NaiveDateTime};
+use chrono::{NaiveDateTime, offset::Utc};
 use regex::Regex;
-use sqlx::{query, query_as, PgPool};
+use sqlx::{PgPool, query, query_as};
 
 struct DisplayTag {
     id: i32,
@@ -272,10 +272,10 @@ pub async fn manage_posts(globals: PageGlobals) -> anyhow::Result<cgi::Response>
         .query
         .get("page")
         .and_then(|p| p.parse().ok())
-        .unwrap_or(0);
+        .unwrap_or(1);
     let items_per_page = globals
         .query
-        .get("page")
+        .get("items_per_page")
         .and_then(|p| p.parse().ok())
         .unwrap_or(20);
     let settings = get_settings_struct(&globals.connection_pool, globals.site_id).await?;
@@ -285,7 +285,7 @@ pub async fn manage_posts(globals: PageGlobals) -> anyhow::Result<cgi::Response>
     let posts = query_as!(
         Post,
         r#"SELECT id, author_id, post_date, created_date, updated_date, state as "state: PostStatus", url_slug, title, body FROM posts WHERE site_id=$3 ORDER BY post_date DESC OFFSET $1 ROWS FETCH NEXT $2 ROWS ONLY"#,
-        items_per_page * current_page,
+        items_per_page * (current_page - 1),
         items_per_page,
 		globals.site_id
     )

@@ -386,3 +386,21 @@ th:last-child::after {
 
   }
 }
+
+.post-top-matter {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+
+  & pre {
+    display: inline-block;
+  }
+}
+
+.pagination {
+  & .pages {
+    & a, & span {
+      display: inline-block;
+      margin-right: 0.2em;
+    }
+  }
+}

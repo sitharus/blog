@@ -119,8 +119,16 @@ pub async fn load_templates(
     );
 
     tera.register_function("buildurl", site_url);
+    tera.register_tester("cut", has_cut);
 
     Ok(tera)
+}
+
+fn has_cut(value: Option<&Value>, _args: &[Value]) -> tera::Result<bool> {
+    match value {
+        Some(v) => Ok(from_value::<String>(v.clone())?.contains("<blog-cut>")),
+        None => Ok(false),
+    }
 }
 
 pub fn blog_post_url(

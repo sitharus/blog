@@ -1,23 +1,35 @@
-			<label>
-				Title
-				<input type="text" name="title" value="{{title}}" />
-			</label>
-			<label>
-				Date
-				<input type="datetime-local" name="date" value="{{date|format_form_date}}" />
-			</label>
-			<label>
-				Slug
-				<input type="text" name="slug" value="{{slug}}" />
-			</label>
-			<label>
-				Status
-				<select name="status">
-					<option value="Draft" {% if status == PostStatus::Draft %}selected{% endif %}>Draft</option>
-					<option value="Preview" {% if status == PostStatus::Preview %}selected{% endif %}>Preview</option>
-					<option value="Published" {% if status == PostStatus::Published %}selected{% endif %}>Published</option>
-				</select>
-			</label>
+			<div class="post-top-matter">
+				<div>
+					<label>
+						Title
+						<input type="text" name="title" value="{{title}}" />
+					</label>
+					<label>
+						Date
+						<input type="datetime-local" name="date" value="{{date|format_form_date}}" />
+					</label>
+					<label>
+						Slug
+						<input type="text" name="slug" value="{{slug}}" />
+					</label>
+					<label>
+						Status
+						<select name="status">
+							<option value="Draft" {% if status == PostStatus::Draft %}selected{% endif %}>Draft</option>
+							<option value="Preview" {% if status == PostStatus::Preview %}selected{% endif %}>Preview</option>
+							<option value="Published" {% if status == PostStatus::Published %}selected{% endif %}>Published</option>
+						</select>
+					</label>
+				</div>
+				<div>
+					<h3>Formatting</h3>
+					<p>CommonMark flavoured Markdown, with the following options:</p>
+					<p>Image from media: <pre>![alt text][(!!id "Title text"), id is an int</pre></p>
+					<p>Inline math: <pre>`$$latex$$`</pre></p>
+					<p>Footnotes: <pre>text[^1]</pre> then <pre>[^1]: footnote</pre></p>
+					<p>Article cut: <pre>&lt;blog-cut&gt;</pre></p>
+				</div>
+			</div>
 			<label for="body">Content</label>
 			<textarea name="body">{{body}}</textarea>
 			<label>
