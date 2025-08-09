@@ -2,7 +2,7 @@ use core::fmt;
 use std::collections::HashMap;
 
 use chrono::NaiveDateTime;
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer, de};
 use shared::types::PostStatus;
 use sqlx::PgPool;
 
@@ -52,6 +52,8 @@ impl PartialEq<&str> for AdminMenuPages {
 pub struct PostRequest {
     pub title: String,
     pub body: String,
+
+    #[serde(deserialize_with = "deserialize_from_form_datetime")]
     pub date: NaiveDateTime,
     pub status: PostStatus,
     pub slug: String,
@@ -59,6 +61,16 @@ pub struct PostRequest {
     pub mood: Option<String>,
     pub summary: Option<String>,
     pub tags: Option<Vec<i32>>,
+}
+
+fn deserialize_from_form_datetime<'de, D>(deserializer: D) -> Result<NaiveDateTime, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s: String = Deserialize::deserialize(deserializer)?;
+    NaiveDateTime::parse_from_str(&s, "%Y-%m-%dT%H:%M:%S")
+        .or_else(|_| NaiveDateTime::parse_from_str(&s, "%Y-%m-%dT%H:%M"))
+        .map_err(de::Error::custom)
 }
 
 pub struct PageGlobals {
