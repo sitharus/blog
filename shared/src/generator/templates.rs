@@ -16,6 +16,7 @@ pub static BASE: &str = include_str!("../../../templates/generated/tera_base.htm
 pub static MACROS: &str = include_str!("../../../templates/generated/tera_macros.html");
 pub static POST: &str = include_str!("../../../templates/generated/post.html");
 pub static INDEX: &str = include_str!("../../../templates/generated/index.html");
+pub static SUBINDEX: &str = include_str!("../../../templates/generated/subindex.html");
 pub static MONTH_INDEX: &str = include_str!("../../../templates/generated/month_index.html");
 pub static YEAR_INDEX: &str = include_str!("../../../templates/generated/year_index.html");
 pub static RSS: &str = include_str!("../../../templates/generated/feed.xml");
@@ -38,11 +39,12 @@ impl TemplateInfo {
     }
 }
 
-static TEMPLATE_MAP: [(&str, &str, &str); 9] = [
+static TEMPLATE_MAP: [(&str, &str, &str); 10] = [
     ("base", "base.html", BASE),
     ("macros", "macros.html", MACROS),
     ("posts", "post.html", POST),
     ("index", "index.html", INDEX),
+    ("subindex", "subindex.html", SUBINDEX),
     ("month_index", "month_index.html", MONTH_INDEX),
     ("year_index", "year_index.html", YEAR_INDEX),
     ("atom", "atom.xml", ATOM),
@@ -479,11 +481,15 @@ fn format_markdown(
     media_base_url: &String,
     media: &HashMap<i32, Media>,
 ) -> tera::Result<Value> {
-    let content: String = from_value(value.clone()).map_err(tera::Error::from)?;
     let before_cut = args
         .get("before_cut")
         .and_then(|v| from_value::<bool>(v.clone()).ok())
         .unwrap_or(false);
+    let raw_content: String = from_value(value.clone()).map_err(tera::Error::from)?;
+    let content = match before_cut {
+        false => raw_content.replace("<blog-cut>", ""),
+        true => raw_content,
+    };
     let mut current_image: Option<Tag> = None;
     let mut image_text = String::new();
     let mut in_codeblock = false;

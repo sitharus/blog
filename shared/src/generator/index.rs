@@ -4,7 +4,7 @@ use sqlx::query;
 use std::vec::IntoIter;
 use tera::Context;
 use tokio::{
-    fs::{create_dir_all, File},
+    fs::{File, create_dir_all},
     io::AsyncWriteExt,
 };
 
@@ -25,7 +25,7 @@ pub async fn generate_index_pages(
     posts: IntoIter<&HydratedPost>,
     generator: &Generator<'_>,
 ) -> anyhow::Result<()> {
-    generate_pages(posts, generator, generator.output_path).await
+    generate_pages(posts, generator, generator.output_path, "index.html").await
 }
 
 pub fn index_content(
@@ -33,6 +33,7 @@ pub fn index_content(
     generator: &Generator<'_>,
     page_number: i32,
     total_pages: i32,
+    template: &str,
 ) -> anyhow::Result<String> {
     let page = IndexPage {
         title: &generator.common.blog_name,
@@ -44,7 +45,7 @@ pub fn index_content(
 
     let result = generator
         .tera
-        .render("index.html", &Context::from_serialize(page)?)?;
+        .render(template, &Context::from_serialize(page)?)?;
     Ok(result)
 }
 
@@ -52,6 +53,7 @@ async fn generate_pages<'a>(
     posts: IntoIter<&HydratedPost>,
     generator: &Generator<'a>,
     output_path: &'a str,
+    template: &'a str,
 ) -> anyhow::Result<()> {
     let total_pages = (posts.len() as f64 / 10.0).ceil() as i32;
     for (pos, chunk) in posts.chunks(10).into_iter().enumerate() {
@@ -62,7 +64,7 @@ async fn generate_pages<'a>(
         };
         let posts = chunk.collect();
 
-        let rendered = index_content(posts, generator, pos as i32 + 1, total_pages)?;
+        let rendered = index_content(posts, generator, pos as i32 + 1, total_pages, template)?;
         let mut file = File::create(format!("{}/{}", output_path, path)).await?;
         file.write_all(rendered.as_bytes()).await?;
     }
@@ -86,7 +88,13 @@ pub async fn generate_tag_indexes(
 
         let tag_output_path = format!("{}/tags/{}/", generator.output_path, tag.to_lowercase());
         create_dir_all(&tag_output_path).await?;
-        generate_pages(tag_posts.into_iter(), generator, &tag_output_path).await?;
+        generate_pages(
+            tag_posts.into_iter(),
+            generator,
+            &tag_output_path,
+            "subindex.html",
+        )
+        .await?;
     }
     Ok(())
 }

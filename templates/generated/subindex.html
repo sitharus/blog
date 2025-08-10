@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% import "macros.html" as macros %}
+{% block body %}
+<header>
+	<h1>{{title}}</h1>
+</header>
+
+<main>
+	{% for post in posts %}
+	{{ macros::format_post(post=post, before_cut=true) }}
+	{% endfor %}
+</main>
+
+<footer>
+	{% if page > 1 -%}
+	<a href="{% if page - 1 == 1 %}index.html{% else %}index{{page-1}}.html{%endif%}"> << Prev Page</a> {% endif -%}
+		Page {{page}} of {{total_pages}}
+	{% if page < total_pages -%} <a href="index{{page+1}}.html"> Next >> </a> {% endif -%}
+</footer>
+{% endblock %}

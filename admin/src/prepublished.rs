@@ -73,7 +73,7 @@ async fn index(globals: PageGlobals) -> anyhow::Result<cgi::Response> {
         .collect();
     let generator = get_generator(&globals, &common).await?;
 
-    let result = index_content(chunk, &generator, page_number, total_pages)?;
+    let result = index_content(chunk, &generator, page_number, total_pages, "index.html")?;
     Ok(html_response(200, result))
 }
 
