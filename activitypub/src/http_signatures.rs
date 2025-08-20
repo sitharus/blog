@@ -1,17 +1,17 @@
 use anyhow::{anyhow, bail};
-use base64::{engine::general_purpose, Engine as _};
+use base64::{Engine as _, engine::general_purpose};
 use cgi::http::header;
 use rsa::{
+    RsaPrivateKey,
     pkcs1::{DecodeRsaPrivateKey, DecodeRsaPublicKey},
     pkcs1v15::{self, SigningKey, VerifyingKey},
     sha2::{Digest, Sha256},
     signature::{RandomizedSigner, SignatureEncoding, Verifier},
-    RsaPrivateKey,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use shared::settings::Settings;
-use sqlx::{query, PgPool};
+use sqlx::{PgPool, query};
 use ureq::{Request, Response};
 
 #[derive(Deserialize)]
@@ -28,14 +28,20 @@ pub async fn validate(
     connection: &PgPool,
     settings: &Settings,
 ) -> anyhow::Result<String> {
-    let signature = request.headers().get("Signature");
-    let digest = request.headers().get("Digest");
+    let signature = request.headers().get("signature");
+    let digest = request.headers().get("digest");
     match signature {
         Some(signature) => {
             let sig: SignatureHeader = serde_querystring::from_bytes(
                 signature.as_bytes(),
                 serde_querystring::ParseMode::UrlEncoded,
-            )?;
+            )
+            .map_err(|e| {
+                anyhow!(format!(
+                    "Could not parse signature from {:?}: {}",
+                    signature, e
+                ))
+            })?;
 
             if sig.algorithm != "rsa-sha256" {
                 bail!("Algorithm {} not supported", sig.algorithm);
