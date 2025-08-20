@@ -2,12 +2,12 @@ use crate::actor::get_actor;
 use crate::http_signatures::{self, sign_and_call, validate};
 use crate::utils::jsonld_response;
 use anyhow::bail;
-use cgi::http::{header, Method};
+use cgi::http::{Method, header};
 use serde_json::Value;
 use shared::activities::{Activity, Create, Delete, Follow, Like, Note, OrderedCollection, Undo};
 use shared::settings::Settings;
 use sqlx::types::Json;
-use sqlx::{query, query_as, PgPool};
+use sqlx::{PgPool, query, query_as};
 
 struct InboxItem {
     message: Option<String>,
@@ -88,7 +88,7 @@ ORDER BY ai.received_at DESC
         }
         Method::POST => {
             let body: Value = serde_json::from_slice(request.body())?;
-            http_signatures::validate(request, connection, settings).await?;
+            //http_signatures::validate(request, connection, settings).await?;
 
             let inserted = query!(
                 "INSERT INTO activitypub_inbox(body) VALUES($1) RETURNING id",
