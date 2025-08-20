@@ -5,8 +5,9 @@ use base64::{Engine as _, engine::general_purpose};
 use cgi::http::header;
 use rsa::{
     RsaPrivateKey,
-    pkcs1::{DecodeRsaPrivateKey, DecodeRsaPublicKey},
+    pkcs1::DecodeRsaPrivateKey,
     pkcs1v15::{self, SigningKey, VerifyingKey},
+    pkcs8::DecodePublicKey,
     sha2::{Digest, Sha256},
     signature::{RandomizedSigner, SignatureEncoding, Verifier},
 };
@@ -59,7 +60,7 @@ pub async fn validate(
 
             let public_key =
                 get_or_update_actor_public_key(&sig.key_id, connection, settings).await?;
-            match VerifyingKey::<Sha256>::from_pkcs1_pem(&public_key) {
+            match VerifyingKey::<Sha256>::from_public_key_pem(&public_key) {
                 Ok(verifying_key) => {
                     let signature_parts: Vec<String> = sig
                         .headers
@@ -98,7 +99,10 @@ pub async fn validate(
                     Ok(sig.key_id)
                 }
                 // If we can't parse the key then just assume it's right for now
-                Err(_) => Ok(sig.key_id),
+                Err(_) => {
+                    eprintln!("Failed to parse public key for {}", sig.key_id);
+                    Ok(sig.key_id)
+                }
             }
         }
         _ => bail!("Signature not present"),
