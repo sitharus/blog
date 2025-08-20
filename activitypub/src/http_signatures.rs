@@ -181,7 +181,7 @@ async fn get_or_update_actor_public_key(
     settings: &Settings,
 ) -> anyhow::Result<String> {
     let maybe_existing = query!(
-        "SELECT public_key FROm activitypub_known_actors WHERE public_key_id=$1 OR actor=$1",
+        "SELECT public_key FROM activitypub_known_actors WHERE public_key_id=$1 OR actor=$1",
         actor_or_key_id
     )
     .fetch_optional(connection)
@@ -210,7 +210,15 @@ async fn get_or_update_actor_public_key(
             .fetch_one(connection)
             .await?;
 
-            result.public_key.ok_or(anyhow!("Key not found!"))
+            result
+                .public_key
+                // This is a hack because the RSA library wants to see RSA here but
+                // the fediverse doesn't always do this...
+                .map(|s| {
+                    s.replace("BEGIN PUBLIC KEY", "BEGIN RSA PUBLIC KEY")
+                        .replace("END PUBLIC KEY", "END RSA PUBLIC KEY")
+                })
+                .ok_or(anyhow!("Key not found!"))
         }
     }
 }
