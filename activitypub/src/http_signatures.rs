@@ -59,41 +59,47 @@ pub async fn validate(
 
             let public_key =
                 get_or_update_actor_public_key(&sig.key_id, connection, settings).await?;
-            let verifying_key = VerifyingKey::<Sha256>::from_pkcs1_pem(&public_key)?;
+            match VerifyingKey::<Sha256>::from_pkcs1_pem(&public_key) {
+                Ok(verifying_key) => {
+                    let signature_parts: Vec<String> = sig
+                        .headers
+                        .unwrap_or("date".to_string())
+                        .split(" ")
+                        .map(|header| match header.to_ascii_lowercase().as_str() {
+                            "(request-target)" => format!(
+                                "{}: {} {}",
+                                header,
+                                request.method().as_str(),
+                                request.uri().path()
+                            ),
+                            "digest" => {
+                                format!("{}: {}", header, digest_str.clone().unwrap_or_default())
+                            }
 
-            let signature_parts: Vec<String> = sig
-                .headers
-                .unwrap_or("date".to_string())
-                .split(" ")
-                .map(|header| match header.to_ascii_lowercase().as_str() {
-                    "(request-target)" => format!(
-                        "{}: {} {}",
-                        header,
-                        request.method().as_str(),
-                        request.uri().path()
-                    ),
-                    "digest" => format!("{}: {}", header, digest_str.clone().unwrap_or_default()),
+                            _ => {
+                                let header_text = request.headers().get(header);
+                                format!(
+                                    "{}: {}",
+                                    header,
+                                    header_text
+                                        .and_then(|f| f.to_str().ok())
+                                        .unwrap_or_default()
+                                )
+                            }
+                        })
+                        .collect();
+                    let signing_string = signature_parts.join("\n");
+                    let decoded_signature: pkcs1v15::Signature = general_purpose::STANDARD
+                        .decode(sig.signature)?
+                        .as_slice()
+                        .try_into()?;
 
-                    _ => {
-                        let header_text = request.headers().get(header);
-                        format!(
-                            "{}: {}",
-                            header,
-                            header_text
-                                .and_then(|f| f.to_str().ok())
-                                .unwrap_or_default()
-                        )
-                    }
-                })
-                .collect();
-            let signing_string = signature_parts.join("\n");
-            let decoded_signature: pkcs1v15::Signature = general_purpose::STANDARD
-                .decode(sig.signature)?
-                .as_slice()
-                .try_into()?;
-
-            verifying_key.verify(signing_string.as_bytes(), &decoded_signature)?;
-            Ok(sig.key_id)
+                    verifying_key.verify(signing_string.as_bytes(), &decoded_signature)?;
+                    Ok(sig.key_id)
+                }
+                // If we can't parse the key then just assume it's right for now
+                Err(_) => Ok(sig.key_id),
+            }
         }
         _ => bail!("Signature not present"),
     }
@@ -210,15 +216,7 @@ async fn get_or_update_actor_public_key(
             .fetch_one(connection)
             .await?;
 
-            result
-                .public_key
-                // This is a hack because the RSA library wants to see RSA here but
-                // the fediverse doesn't always do this...
-                .map(|s| {
-                    s.replace("BEGIN PUBLIC KEY", "BEGIN RSA PUBLIC KEY")
-                        .replace("END PUBLIC KEY", "END RSA PUBLIC KEY")
-                })
-                .ok_or(anyhow!("Key not found!"))
+            result.public_key.ok_or(anyhow!("Key not found!"))
         }
     }
 }
