@@ -226,8 +226,6 @@ fn signature_csv(bytes: &[u8]) -> anyhow::Result<SignatureHeader> {
     let parts = string_signature.split(",");
     let map = HashMap::<String, String>::from_iter(parts.into_iter().map(header_kv));
 
-    println!("Map is {:?}", map);
-
     let key_id = map.get("keyid").ok_or(anyhow!("No key id in signature"))?;
     let algorithm = map
         .get("algorithm")
