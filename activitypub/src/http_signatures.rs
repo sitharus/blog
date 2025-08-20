@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use anyhow::{anyhow, bail};
 use base64::{Engine as _, engine::general_purpose};
 use cgi::http::header;
@@ -14,7 +16,7 @@ use shared::settings::Settings;
 use sqlx::{PgPool, query};
 use ureq::{Request, Response};
 
-#[derive(Deserialize)]
+#[derive(Deserialize, PartialEq, Eq, Debug)]
 #[serde(rename_all = "camelCase")]
 struct SignatureHeader {
     key_id: String,
@@ -32,16 +34,7 @@ pub async fn validate(
     let digest = request.headers().get("digest");
     match signature {
         Some(signature) => {
-            let sig: SignatureHeader = serde_querystring::from_bytes(
-                signature.as_bytes(),
-                serde_querystring::ParseMode::UrlEncoded,
-            )
-            .map_err(|e| {
-                anyhow!(format!(
-                    "Could not parse signature from {:?}: {}",
-                    signature, e
-                ))
-            })?;
+            let sig = signature_from_header(signature.as_bytes())?;
 
             if sig.algorithm != "rsa-sha256" {
                 bail!("Algorithm {} not supported", sig.algorithm);
@@ -219,5 +212,63 @@ async fn get_or_update_actor_public_key(
 
             result.public_key.ok_or(anyhow!("Key not found!"))
         }
+    }
+}
+
+fn signature_from_header(bytes: &[u8]) -> anyhow::Result<SignatureHeader> {
+    serde_querystring::from_bytes(bytes, serde_querystring::ParseMode::UrlEncoded)
+        .or_else(|_| signature_csv(bytes))
+        .map_err(|_| anyhow!(format!("Could not find a signature header in {:?}", bytes)))
+}
+
+fn signature_csv(bytes: &[u8]) -> anyhow::Result<SignatureHeader> {
+    let string_signature = String::from_utf8(bytes.to_owned())?;
+    let parts = string_signature.split(",");
+    let map = HashMap::<String, String>::from_iter(parts.into_iter().map(header_kv));
+
+    println!("Map is {:?}", map);
+
+    let key_id = map.get("keyid").ok_or(anyhow!("No key id in signature"))?;
+    let algorithm = map
+        .get("algorithm")
+        .ok_or(anyhow!("No algorithm in signature"))?;
+    let signature = map
+        .get("signature")
+        .ok_or(anyhow!("No signature in signature"))?;
+    let headers = map.get("headers");
+    Ok(SignatureHeader {
+        key_id: key_id.to_string(),
+        algorithm: algorithm.to_string(),
+        headers: headers.map(|h| h.to_string()),
+        signature: signature.to_string(),
+    })
+}
+
+fn header_kv(value: &str) -> (String, String) {
+    let parts: Vec<&str> = value.splitn(2, "=").collect();
+    (
+        parts[0].to_lowercase().to_string(),
+        parts
+            .get(1)
+            .map(|x| x.trim_matches('"').to_string())
+            .unwrap_or("".into()),
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn can_parse() {
+        let result = signature_csv(
+            "keyId=\"https://cloudisland.nz/users/sitharus#main-key\",algorithm=\"rsa-sha256\",headers=\"host date digest content-type (request-target)\",signature=\"JpcsC26ehWvhy8ffUrVruJFjm1QBUKJG+m1tX9caEyidh9cpjpWsMR57mxdWGnFC/j1jLQ7hZxR2hrMJk8hLU5PQqPFuaTazL6OL82yIhFLc00JBG0/tOHpkOEih3p8r/GwaLNtihrs7ocNnh/DUEvVGQhxR/qcw/vmp5Vcr0rCCm4hX18EgZgQc+Q419/XReF34RRFzagJzFtBPhmLLKvXncbP0z7dVMGrfoNLRSVsUNTJO+mc+dnJ0CNAi4XeZ7xGLmljslEPtjTrPk/IajuMyU9E9j1NWfoIGrZhrt0EY0m6KmAsswHZ6+h0dbkCOLNdrEM0xIG6ElSXXWXloIg==\"".as_bytes()
+        ).unwrap();
+        assert_eq!(result, SignatureHeader {
+            key_id: "https://cloudisland.nz/users/sitharus#main-key".into(),
+            algorithm: "rsa-sha256".into(),
+            headers: Some("host date digest content-type (request-target)".into()),
+            signature: "JpcsC26ehWvhy8ffUrVruJFjm1QBUKJG+m1tX9caEyidh9cpjpWsMR57mxdWGnFC/j1jLQ7hZxR2hrMJk8hLU5PQqPFuaTazL6OL82yIhFLc00JBG0/tOHpkOEih3p8r/GwaLNtihrs7ocNnh/DUEvVGQhxR/qcw/vmp5Vcr0rCCm4hX18EgZgQc+Q419/XReF34RRFzagJzFtBPhmLLKvXncbP0z7dVMGrfoNLRSVsUNTJO+mc+dnJ0CNAi4XeZ7xGLmljslEPtjTrPk/IajuMyU9E9j1NWfoIGrZhrt0EY0m6KmAsswHZ6+h0dbkCOLNdrEM0xIG6ElSXXWXloIg==".into()
+        });
     }
 }
