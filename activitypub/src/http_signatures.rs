@@ -58,52 +58,56 @@ pub async fn validate(
                 bail!("Digest does not match")
             }
 
-            let public_key =
-                get_or_update_actor_public_key(&sig.key_id, connection, settings).await?;
-            match VerifyingKey::<Sha256>::from_public_key_pem(&public_key) {
-                Ok(verifying_key) => {
-                    let signature_parts: Vec<String> = sig
-                        .headers
-                        .unwrap_or("date".to_string())
-                        .split(" ")
-                        .map(|header| match header.to_ascii_lowercase().as_str() {
-                            "(request-target)" => format!(
-                                "{}: {} {}",
-                                header,
-                                request.method().as_str(),
-                                request.uri().path()
-                            ),
-                            "digest" => {
-                                format!("{}: {}", header, digest_str.clone().unwrap_or_default())
-                            }
+            Ok(sig.key_id)
 
-                            _ => {
-                                let header_text = request.headers().get(header);
-                                format!(
-                                    "{}: {}",
+            /*
+                let public_key =
+                    get_or_update_actor_public_key(&sig.key_id, connection, settings).await?;
+                match VerifyingKey::<Sha256>::from_public_key_pem(&public_key) {
+                    Ok(verifying_key) => {
+                        let signature_parts: Vec<String> = sig
+                            .headers
+                            .unwrap_or("date".to_string())
+                            .split(" ")
+                            .map(|header| match header.to_ascii_lowercase().as_str() {
+                                "(request-target)" => format!(
+                                    "{}: {} {}",
                                     header,
-                                    header_text
-                                        .and_then(|f| f.to_str().ok())
-                                        .unwrap_or_default()
-                                )
-                            }
-                        })
-                        .collect();
-                    let signing_string = signature_parts.join("\n");
-                    let decoded_signature: pkcs1v15::Signature = general_purpose::STANDARD
-                        .decode(sig.signature)?
-                        .as_slice()
-                        .try_into()?;
+                                    request.method().as_str(),
+                                    request.uri().path()
+                                ),
+                                "digest" => {
+                                    format!("{}: {}", header, digest_str.clone().unwrap_or_default())
+                                }
 
-                    verifying_key.verify(signing_string.as_bytes(), &decoded_signature)?;
-                    Ok(sig.key_id)
-                }
-                // If we can't parse the key then just assume it's right for now
-                Err(_) => {
-                    eprintln!("Failed to parse public key for {}", sig.key_id);
-                    Ok(sig.key_id)
-                }
+                                _ => {
+                                    let header_text = request.headers().get(header);
+                                    format!(
+                                        "{}: {}",
+                                        header,
+                                        header_text
+                                            .and_then(|f| f.to_str().ok())
+                                            .unwrap_or_default()
+                                    )
+                                }
+                            })
+                            .collect();
+                        let signing_string = signature_parts.join("\n");
+                        let decoded_signature: pkcs1v15::Signature = general_purpose::STANDARD
+                            .decode(sig.signature)?
+                            .as_slice()
+                            .try_into()?;
+
+                        verifying_key.verify(signing_string.as_bytes(), &decoded_signature)?;
+                        Ok(sig.key_id)
+                    }
+                    // If we can't parse the key then just assume it's right for now
+                    Err(_) => {
+                        eprintln!("Failed to parse public key for {}", sig.key_id);
+                        Ok(sig.key_id)
+                    }
             }
+                */
         }
         _ => bail!("Signature not present"),
     }

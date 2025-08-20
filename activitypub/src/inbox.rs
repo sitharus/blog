@@ -88,7 +88,7 @@ ORDER BY ai.received_at DESC
         }
         Method::POST => {
             let body: Value = serde_json::from_slice(request.body())?;
-            //http_signatures::validate(request, connection, settings).await?;
+            http_signatures::validate(request, connection, settings).await?;
 
             let inserted = query!(
                 "INSERT INTO activitypub_inbox(body) VALUES($1) RETURNING id",
