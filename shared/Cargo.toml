@@ -24,5 +24,6 @@ thiserror = { workspace = true }
 latex2mathml = { workspace = true }
 url = { workspace = true }
 tera = { workspace = true }
+regex = { workspace = true }
 
 itertools = "0.14"
