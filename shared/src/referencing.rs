@@ -1,8 +1,12 @@
 use core::fmt;
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::Write,
+    sync::LazyLock,
+};
 
 use anyhow::anyhow;
-use regex::Regex;
+use regex::{Captures, Regex};
 use serde::{
     Deserialize,
     de::{DeserializeSeed, IntoDeserializer, MapAccess, Visitor},
@@ -24,6 +28,66 @@ pub struct Reference {
     title: String,
     journal: Option<String>,
     year: Option<i16>,
+    edition: Option<String>,
+    volume: Option<String>,
+    pages: Option<String>,
+    doi: Option<String>,
+    pmid: Option<String>,
+}
+
+impl Reference {
+    pub fn format_reference(&self) -> String {
+        match self.kind {
+            ReferenceType::Journal => {
+                let mut parts: Vec<Option<String>> =
+                    vec![Some(self.author.clone()), Some(self.title.clone())];
+
+                parts.push(self.journal.clone());
+
+                let year_edition = match (self.year, &self.edition) {
+                    (Some(year), Some(edition)) => format!("{} {}", year, edition),
+                    (Some(year), None) => year.to_string(),
+                    (None, Some(edition)) => edition.to_string(),
+                    _ => "".into(),
+                };
+
+                let with_volume = match (&self.volume, &self.pages) {
+                    (Some(volume), Some(pages)) => {
+                        format!("{};{}:{}", year_edition, volume, pages)
+                    }
+                    (Some(volume), None) => format!("{};{}", year_edition, volume),
+                    (None, Some(pages)) => format!("{}:{}", year_edition, pages),
+                    _ => year_edition,
+                };
+
+                parts.push(Some(with_volume));
+
+                let doi = self
+                    .doi
+                    .clone()
+                    .map(|doi| format!("[doi:{}](https://doi.org/{})", doi, doi));
+                parts.push(doi);
+
+                let pmc = self.pmid.clone().map(|pmid| {
+                    format!(
+                        "PMID: [{}](https://europepmc.org/article/MED/{})",
+                        pmid, pmid
+                    )
+                });
+                parts.push(pmc);
+
+                format!(
+                    "{}.",
+                    parts
+                        .into_iter()
+                        .flatten()
+                        .collect::<Vec<String>>()
+                        .join(". ")
+                )
+            }
+            ReferenceType::Website => "".into(),
+        }
+    }
 }
 
 struct ReferenceDeserializer<'de> {
@@ -205,8 +269,8 @@ impl<'de> serde::de::Deserializer<'de> for &'_ mut ReferenceDeserializer<'de> {
 
     fn deserialize_struct<V>(
         self,
-        name: &'de str,
-        fields: &'de [&'de str],
+        _name: &'de str,
+        _fields: &'de [&'de str],
         visitor: V,
     ) -> Result<V::Value, Self::Error>
     where
@@ -396,20 +460,113 @@ impl<'de> MapAccess<'de> for ReferenceFields<'_, 'de> {
     }
 }
 
-#[derive(PartialEq, Eq, Clone, Debug)]
-struct Citation {
-    name: String,
+static CITATION_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r#"\\cite\{([^}]+)\}"#).expect("Could not create citation regex"));
+
+static REFERENCE_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"@(journal|website)\{.*?,(?s).*?(?-s)\}\r?\n?")
+        .expect("Could not create reference regex")
+});
+
+struct ProcessedReferences {
+    citations: Vec<String>,
+    references: HashMap<String, Reference>,
+    document_without_references: String,
 }
 
-pub fn process_references(source: String) -> String {
-    source
+fn references_and_citations(source: &str) -> anyhow::Result<ProcessedReferences> {
+    let citations = extract_citations(source)?;
+    let (document_without_references, references) = extract_references(source)?;
+    Ok(ProcessedReferences {
+        citations,
+        references,
+        document_without_references,
+    })
 }
 
-pub fn extract_citations(source: &str) -> anyhow::Result<Vec<String>> {
-    let extract_re = Regex::new(r"\\cite\{([^}]+)\}")?;
+pub fn references_to_markdown(source: String) -> anyhow::Result<String> {
+    let ProcessedReferences {
+        citations,
+        references,
+        document_without_references,
+    } = references_and_citations(&source)?;
 
+    if references.is_empty() {
+        Ok(source)
+    } else {
+        let mut reference_counter: HashMap<usize, i32> = HashMap::new();
+
+        let with_citations =
+            CITATION_RE.replace_all(&document_without_references, |m: &Captures| {
+                match m
+                    .get(1)
+                    .map(|c| c.as_str())
+                    .and_then(|c| citations.iter().position(|v| c == *v).map(|p| p + 1))
+                {
+                    Some(index) => {
+                        let cite_index = *reference_counter.get(&index).unwrap_or(&1);
+                        reference_counter.insert(index, cite_index + 1);
+                        format!(
+                            r#"<sup id="cite_{}_{}"><a href="\#reference_{}">{}</a></sup>"#,
+                            index, cite_index, index, index
+                        )
+                    }
+                    None => "<sup>Unknown citation</sup>".into(),
+                }
+            });
+
+        let ordered_references = citations
+            .iter()
+            .enumerate()
+            .map(|(i, c)| {
+                references
+                    .get(c)
+                    .map(|r| {
+                        let index = i + 1;
+                        let citation_count = *reference_counter.get(&index).unwrap_or(&0);
+                        let backlinks = if citation_count > 0 {
+                            let links: String =
+                                (1..citation_count).fold(String::new(), |mut output, i| {
+                                    let _ = write!(
+                                        output,
+                                        r#"<a href="\#cite_{}_{}">{}</a>"#,
+                                        index, i, i
+                                    );
+                                    output
+                                });
+                            format!("<sup>{}</sup>", links)
+                        } else {
+                            "".to_string()
+                        };
+                        format!(
+                            "{}. <span id=\"reference_{}\">{}</span>{}\n",
+                            index,
+                            index,
+                            r.format_reference(),
+                            backlinks
+                        )
+                    })
+                    .ok_or(anyhow!("Could not find citation {}", c))
+            })
+            .collect::<anyhow::Result<String>>()?;
+
+        Ok(format!(
+            "{}\n\n## References\n\n{}",
+            with_citations.trim_end(),
+            ordered_references
+        ))
+    }
+}
+
+pub fn remove_citations_and_references(source: String) -> String {
+    REFERENCE_RE
+        .replace_all(&CITATION_RE.replace_all(&source, ""), "")
+        .to_string()
+}
+
+fn extract_citations(source: &str) -> anyhow::Result<Vec<String>> {
     let mut seen = HashSet::new();
-    let mut captures: Vec<&str> = extract_re
+    let mut captures: Vec<&str> = CITATION_RE
         .captures_iter(source)
         .filter_map(|c| c.get(1))
         .map(|m| m.as_str())
@@ -418,12 +575,9 @@ pub fn extract_citations(source: &str) -> anyhow::Result<Vec<String>> {
     Ok(captures.iter().map(|c| c.to_string()).collect())
 }
 
-pub fn extract_references(
-    source: &str,
-) -> Result<(String, HashMap<String, Reference>), anyhow::Error> {
-    let extract_re = Regex::new(r"@(journal|website)\{.*?,(?s).*?(?-s)\}\r?\n?")?;
-    let without_citations = extract_re.replace_all(source, "");
-    let matches: anyhow::Result<Vec<Reference>> = extract_re
+fn extract_references(source: &str) -> Result<(String, HashMap<String, Reference>), anyhow::Error> {
+    let without_citations = REFERENCE_RE.replace_all(source, "");
+    let matches: anyhow::Result<Vec<Reference>> = REFERENCE_RE
         .find_iter(source)
         .map(|m| reference_from_str(m.as_str()))
         .collect();
@@ -473,7 +627,12 @@ this is a citation test \cite{test1}
             author: "test 1".into(),
             title: "A test article".into(),
             journal: Some("A journal".into()),
-            year: Some(2023)
+            year: Some(2023),
+            edition: None,
+            volume: None,
+            pages: None,
+            doi: None,
+            pmid: None
         }
     );
     assert_eq!(
@@ -484,7 +643,12 @@ this is a citation test \cite{test1}
             author: "test 2".into(),
             title: "Another test article".into(),
             journal: Some("A journal".into()),
-            year: Some(2024)
+            year: Some(2024),
+            edition: None,
+            volume: None,
+            pages: None,
+            doi: None,
+            pmid: None
         }
     );
 }
@@ -497,4 +661,80 @@ pub fn test_extract_citations() {
     let extracted = extract_citations(input).unwrap();
     assert_eq!(extracted.len(), 3);
     assert_eq!(extracted, vec!["test1", "test2", "test3"]);
+}
+
+#[test]
+pub fn test_format_journal_reference() {
+    let test_reference = Reference {
+        name: "test2".into(),
+        kind: ReferenceType::Journal,
+        author: "Limb L, Limb P, Limb A".into(),
+        title: "Another test article".into(),
+        journal: Some("A journal".into()),
+        year: Some(2024),
+        edition: Some("Apr".into()),
+        volume: None,
+        pages: Some("122-143".into()),
+        doi: None,
+        pmid: None,
+    };
+    let expected = "Limb L, Limb P, Limb A. Another test article. A journal. 2024 Apr:122-143.";
+    let formatted = test_reference.format_reference();
+
+    assert_eq!(expected, formatted);
+}
+
+#[test]
+pub fn test_format_journal_reference_with_doi() {
+    let test_reference = Reference {
+        name: "test2".into(),
+        kind: ReferenceType::Journal,
+        author: "Limb L, Limb P, Limb A".into(),
+        title: "Another test article".into(),
+        journal: Some("A journal".into()),
+        year: Some(2024),
+        edition: Some("Apr".into()),
+        volume: None,
+        pages: Some("122-143".into()),
+        doi: Some("10.1000/182".into()),
+        pmid: None,
+    };
+    let expected = "Limb L, Limb P, Limb A. Another test article. A journal. 2024 Apr:122-143. [doi:10.1000/182](https://doi.org/10.1000/182).";
+    let formatted = test_reference.format_reference();
+
+    assert_eq!(expected, formatted);
+}
+
+#[test]
+pub fn test_references_to_markdown() {
+    let input = r#"
+this is a citation test\cite{test1} and\cite{test2} and back to\cite{test1}
+
+
+@journal{test2,
+author = "test 2",
+title = "Another test article",
+journal = "A journal",
+year = 2024
+}
+
+@journal{test1,
+author = "test 1",
+title = "A test article",
+journal = "A journal",
+year = 2023
+}
+"#;
+    let result = references_to_markdown(input.into()).unwrap();
+    assert_eq!(
+        result,
+        r#"
+this is a citation test<sup id="cite_1_1"><a href="\#reference_1">1</a></sup> and<sup id="cite_2_1"><a href="\#reference_2">2</a></sup> and back to<sup id="cite_1_2"><a href="\#reference_1">1</a></sup>
+
+## References
+
+1. <span id="reference_1">test 1. A test article. A journal. 2023.</span><sup><a href="\#cite_1_1">1</a><a href="\#cite_1_2">2</a></sup>
+2. <span id="reference_2">test 2. Another test article. A journal. 2024.</span><sup><a href="\#cite_2_1">1</a></sup>
+"#
+    );
 }

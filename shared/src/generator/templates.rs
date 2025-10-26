@@ -10,7 +10,10 @@ use serde_json::{Value, from_value};
 use sqlx::PgPool;
 use tera::{Filter, Function, Tera};
 
-use crate::types::{CommonData, HydratedPost, Media};
+use crate::{
+    referencing::{references_to_markdown, remove_citations_and_references},
+    types::{CommonData, HydratedPost, Media},
+};
 
 pub static BASE: &str = include_str!("../../../templates/generated/tera_base.html");
 pub static MACROS: &str = include_str!("../../../templates/generated/tera_macros.html");
@@ -487,8 +490,9 @@ fn format_markdown(
         .unwrap_or(false);
     let raw_content: String = from_value(value.clone()).map_err(tera::Error::from)?;
     let content = match before_cut {
-        false => raw_content.replace("<blog-cut>", ""),
-        true => raw_content,
+        false => references_to_markdown(raw_content.replace("<blog-cut>", ""))
+            .map_err(|e| tera::Error::msg(e.to_string()))?,
+        true => remove_citations_and_references(raw_content),
     };
     let mut current_image: Option<Tag> = None;
     let mut image_text = String::new();
