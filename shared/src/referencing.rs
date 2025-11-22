@@ -30,9 +30,11 @@ pub struct Reference {
     year: Option<i16>,
     edition: Option<String>,
     volume: Option<String>,
+    chapter: Option<String>,
     pages: Option<String>,
     doi: Option<String>,
     pmid: Option<String>,
+    isbn: Option<String>,
 }
 
 impl Reference {
@@ -75,6 +77,27 @@ impl Reference {
                     )
                 });
                 parts.push(pmc);
+
+                format!(
+                    "{}.",
+                    parts
+                        .into_iter()
+                        .flatten()
+                        .collect::<Vec<String>>()
+                        .join(". ")
+                )
+            }
+            ReferenceType::Book => {
+                let mut parts: Vec<Option<String>> = vec![
+                    Some(self.author.clone()),
+                    self.chapter.clone(),
+                    Some(self.title.clone()),
+                    self.year.map(|y| y.to_string()),
+                    self.pages,
+                    self.doi
+                        .map(|doi| format!("[doi:{}](https://doi.org/{}", doi, doi)),
+                    self.isbn.map(|isbn| format!("ISBN {}", isbn)),
+                ];
 
                 format!(
                     "{}.",
