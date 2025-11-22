@@ -27,6 +27,7 @@ pub struct Reference {
     kind: ReferenceType,
     author: String,
     title: String,
+    booktitle: Option<String>,
     journal: Option<String>,
     year: Option<i16>,
     edition: Option<String>,
@@ -36,6 +37,8 @@ pub struct Reference {
     doi: Option<String>,
     pmid: Option<String>,
     isbn: Option<String>,
+    eprint: Option<String>,
+    url: Option<String>,
 }
 
 impl Reference {
@@ -93,11 +96,12 @@ impl Reference {
                     Some(self.author.clone()),
                     self.chapter.clone(),
                     Some(self.title.clone()),
+                    self.booktitle.clone(),
                     self.year.map(|y| y.to_string()),
                     self.pages.clone(),
                     self.doi
                         .clone()
-                        .map(|doi| format!("[doi:{}](https://doi.org/{}", doi, doi)),
+                        .map(|doi| format!("[doi:{}](https://doi.org/{})", doi, doi)),
                     self.isbn.clone().map(|isbn| format!("ISBN {}", isbn)),
                 ];
 
@@ -206,6 +210,15 @@ impl<'de> ReferenceDeserializer<'de> {
             None => Err(DeserializeError::new("Could not find end of string")),
         }
     }
+
+    fn parse_string_or_word(&mut self) -> Result<&'de str, DeserializeError> {
+        let next = self.peek_char()?;
+        if next == '"' {
+            self.parse_string()
+        } else {
+            self.parse_word()
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -292,6 +305,13 @@ impl<'de> serde::de::Deserializer<'de> for &'_ mut ReferenceDeserializer<'de> {
         visitor.visit_i16(self.parse_signed()?)
     }
 
+    fn deserialize_ignored_any<V>(self, visitor: V) -> Result<V::Value, DeserializeError>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_borrowed_str(self.parse_string_or_word()?)
+    }
+
     fn deserialize_struct<V>(
         self,
         _name: &'de str,
@@ -314,7 +334,7 @@ impl<'de> serde::de::Deserializer<'de> for &'_ mut ReferenceDeserializer<'de> {
     forward_to_deserialize_any! {
         bool i8 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char
         bytes byte_buf unit unit_struct newtype_struct seq tuple
-        tuple_struct map enum ignored_any
+        tuple_struct map enum
     }
 }
 
@@ -495,7 +515,7 @@ static REFERENCE_RE: LazyLock<Regex> = LazyLock::new(|| {
 
 struct ProcessedReferences {
     citations: Vec<String>,
-    references: HashMap<String, Reference>,
+    references: HashMap<String, anyhow::Result<Reference>>,
     document_without_references: String,
 }
 
@@ -540,45 +560,64 @@ pub fn references_to_markdown(source: String) -> anyhow::Result<String> {
                 }
             });
 
+        // TODO surface errors
         let ordered_references = citations
             .iter()
             .enumerate()
             .map(|(i, c)| {
+                let index = i + 1;
                 references
                     .get(c)
-                    .map(|r| {
-                        let index = i + 1;
-                        let citation_count = *reference_counter.get(&index).unwrap_or(&0);
-                        let backlinks = if citation_count > 0 {
-                            let links: String =
-                                (1..citation_count).fold(String::new(), |mut output, i| {
-                                    let _ = write!(
-                                        output,
-                                        r##"<a href="#cite_{}_{}">{}</a>"##,
-                                        index, i, i
-                                    );
-                                    output
-                                });
-                            format!("<sup>{}</sup>", links)
-                        } else {
-                            "".to_string()
-                        };
-                        format!(
-                            "{}. <span id=\"reference_{}\">{}</span>{}\n",
-                            index,
-                            index,
-                            r.format_reference(),
-                            backlinks
-                        )
+                    .map(|maybe_ref| match maybe_ref {
+                        Ok(r) => {
+                            let citation_count = *reference_counter.get(&index).unwrap_or(&0);
+                            let backlinks = if citation_count > 0 {
+                                let links: String =
+                                    (1..citation_count).fold(String::new(), |mut output, i| {
+                                        let _ = write!(
+                                            output,
+                                            r##"<a href="#cite_{}_{}">{}</a>"##,
+                                            index, i, i
+                                        );
+                                        output
+                                    });
+                                format!("<sup>{}</sup>", links)
+                            } else {
+                                "".to_string()
+                            };
+                            format!(
+                                "{}. <span id=\"reference_{}\">{}</span>{}\n",
+                                index,
+                                index,
+                                r.format_reference(),
+                                backlinks
+                            )
+                        }
+                        Err(e) => format!("Got error for a real reference {:?}", e),
                     })
-                    .ok_or(anyhow!("Could not find citation {}", c))
+                    .unwrap_or(format!(
+                        "{}. Could not find citation {} in keys {:?}\n\n",
+                        index,
+                        c,
+                        references.keys()
+                    ))
             })
-            .collect::<anyhow::Result<String>>()?;
+            .collect::<String>();
+
+        let errors = references
+            .values()
+            .filter(|v| v.is_err())
+            .map(|shouldbe_err| match shouldbe_err {
+                Ok(_) => "Not possible".into(),
+                Err(e) => format!("\n* err: {}", e),
+            })
+            .collect::<String>();
 
         Ok(format!(
-            "{}\n\n## References\n\n{}",
+            "{}\n\n## References\n\n{}{}",
             with_citations.trim_end(),
-            ordered_references
+            ordered_references,
+            errors
         ))
     }
 }
@@ -600,14 +639,23 @@ fn extract_citations(source: &str) -> anyhow::Result<Vec<String>> {
     Ok(captures.iter().map(|c| c.to_string()).collect())
 }
 
-fn extract_references(source: &str) -> Result<(String, HashMap<String, Reference>), anyhow::Error> {
+fn extract_references(
+    source: &str,
+) -> Result<(String, HashMap<String, anyhow::Result<Reference>>), anyhow::Error> {
+    let mut err_count = 0;
     let without_citations = REFERENCE_RE.replace_all(source, "");
-    let matches: anyhow::Result<Vec<Reference>> = REFERENCE_RE
+    let matches: Vec<anyhow::Result<Reference>> = REFERENCE_RE
         .find_iter(source)
         .map(|m| reference_from_str(m.as_str()))
         .collect();
 
-    let refs = HashMap::from_iter(matches?.into_iter().map(|r| (r.name.clone(), r)));
+    let refs = HashMap::from_iter(matches.into_iter().map(|r| match r {
+        Ok(reference) => (reference.name.clone(), Ok(reference)),
+        Err(_) => {
+            err_count += 1;
+            (format!("error_{}", err_count), r)
+        }
+    }));
 
     Ok((without_citations.into(), refs))
 }
@@ -645,7 +693,7 @@ this is a citation test \cite{test1}
     assert!(references.contains_key("test1"));
     assert!(references.contains_key("test2"));
     assert_eq!(
-        *references.get("test1").unwrap(),
+        *references.get("test1").unwrap().as_ref().unwrap(),
         Reference {
             name: "test1".into(),
             kind: ReferenceType::Website,
@@ -660,10 +708,13 @@ this is a citation test \cite{test1}
             pmid: None,
             chapter: None,
             isbn: None,
+            url: None,
+            eprint: None,
+            booktitle: None,
         }
     );
     assert_eq!(
-        *references.get("test2").unwrap(),
+        *references.get("test2").unwrap().as_ref().unwrap(),
         Reference {
             name: "test2".into(),
             kind: ReferenceType::Journal,
@@ -678,6 +729,9 @@ this is a citation test \cite{test1}
             pmid: None,
             chapter: None,
             isbn: None,
+            url: None,
+            eprint: None,
+            booktitle: None,
         }
     );
 }
@@ -708,6 +762,9 @@ pub fn test_format_journal_reference() {
         pmid: None,
         chapter: None,
         isbn: None,
+        url: None,
+        eprint: None,
+        booktitle: None,
     };
     let expected = "Limb L, Limb P, Limb A. Another test article. A journal. 2024 Apr:122-143.";
     let formatted = test_reference.format_reference();
@@ -731,6 +788,9 @@ pub fn test_format_journal_reference_with_doi() {
         pmid: None,
         chapter: None,
         isbn: None,
+        url: None,
+        eprint: None,
+        booktitle: None,
     };
     let expected = "Limb L, Limb P, Limb A. Another test article. A journal. 2024 Apr:122-143. [doi:10.1000/182](https://doi.org/10.1000/182).";
     let formatted = test_reference.format_reference();
@@ -757,6 +817,7 @@ title = "A test article",
 journal = "A journal",
 year = 2023
 }
+
 "#;
     let result = references_to_markdown(input.into()).unwrap();
     assert_eq!(
