@@ -18,6 +18,7 @@ use serde::{
 enum ReferenceType {
     Journal,
     Website,
+    Book,
 }
 
 #[derive(PartialEq, Eq, Clone, Debug, Deserialize)]
@@ -88,15 +89,16 @@ impl Reference {
                 )
             }
             ReferenceType::Book => {
-                let mut parts: Vec<Option<String>> = vec![
+                let parts: Vec<Option<String>> = vec![
                     Some(self.author.clone()),
                     self.chapter.clone(),
                     Some(self.title.clone()),
                     self.year.map(|y| y.to_string()),
-                    self.pages,
+                    self.pages.clone(),
                     self.doi
+                        .clone()
                         .map(|doi| format!("[doi:{}](https://doi.org/{}", doi, doi)),
-                    self.isbn.map(|isbn| format!("ISBN {}", isbn)),
+                    self.isbn.clone().map(|isbn| format!("ISBN {}", isbn)),
                 ];
 
                 format!(
@@ -655,7 +657,9 @@ this is a citation test \cite{test1}
             volume: None,
             pages: None,
             doi: None,
-            pmid: None
+            pmid: None,
+            chapter: None,
+            isbn: None,
         }
     );
     assert_eq!(
@@ -671,7 +675,9 @@ this is a citation test \cite{test1}
             volume: None,
             pages: None,
             doi: None,
-            pmid: None
+            pmid: None,
+            chapter: None,
+            isbn: None,
         }
     );
 }
@@ -700,6 +706,8 @@ pub fn test_format_journal_reference() {
         pages: Some("122-143".into()),
         doi: None,
         pmid: None,
+        chapter: None,
+        isbn: None,
     };
     let expected = "Limb L, Limb P, Limb A. Another test article. A journal. 2024 Apr:122-143.";
     let formatted = test_reference.format_reference();
@@ -721,6 +729,8 @@ pub fn test_format_journal_reference_with_doi() {
         pages: Some("122-143".into()),
         doi: Some("10.1000/182".into()),
         pmid: None,
+        chapter: None,
+        isbn: None,
     };
     let expected = "Limb L, Limb P, Limb A. Another test article. A journal. 2024 Apr:122-143. [doi:10.1000/182](https://doi.org/10.1000/182).";
     let formatted = test_reference.format_reference();
