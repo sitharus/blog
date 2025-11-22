@@ -507,7 +507,7 @@ pub fn references_to_markdown(source: String) -> anyhow::Result<String> {
                         let cite_index = *reference_counter.get(&index).unwrap_or(&1);
                         reference_counter.insert(index, cite_index + 1);
                         format!(
-                            r#"<sup id="cite_{}_{}"><a href="\#reference_{}">{}</a></sup>"#,
+                            r##"<sup id="cite_{}_{}"><a href="#reference_{}">{}</a></sup>"##,
                             index, cite_index, index, index
                         )
                     }
@@ -529,7 +529,7 @@ pub fn references_to_markdown(source: String) -> anyhow::Result<String> {
                                 (1..citation_count).fold(String::new(), |mut output, i| {
                                     let _ = write!(
                                         output,
-                                        r#"<a href="\#cite_{}_{}">{}</a>"#,
+                                        r##"<a href="#cite_{}_{}">{}</a>"##,
                                         index, i, i
                                     );
                                     output
@@ -728,13 +728,13 @@ year = 2023
     let result = references_to_markdown(input.into()).unwrap();
     assert_eq!(
         result,
-        r#"
-this is a citation test<sup id="cite_1_1"><a href="\#reference_1">1</a></sup> and<sup id="cite_2_1"><a href="\#reference_2">2</a></sup> and back to<sup id="cite_1_2"><a href="\#reference_1">1</a></sup>
+        r##"
+this is a citation test<sup id="cite_1_1"><a href="#reference_1">1</a></sup> and<sup id="cite_2_1"><a href="#reference_2">2</a></sup> and back to<sup id="cite_1_2"><a href="#reference_1">1</a></sup>
 
 ## References
 
-1. <span id="reference_1">test 1. A test article. A journal. 2023.</span><sup><a href="\#cite_1_1">1</a><a href="\#cite_1_2">2</a></sup>
-2. <span id="reference_2">test 2. Another test article. A journal. 2024.</span><sup><a href="\#cite_2_1">1</a></sup>
-"#
+1. <span id="reference_1">test 1. A test article. A journal. 2023.</span><sup><a href="#cite_1_1">1</a><a href="#cite_1_2">2</a></sup>
+2. <span id="reference_2">test 2. Another test article. A journal. 2024.</span><sup><a href="#cite_2_1">1</a></sup>
+"##
     );
 }
