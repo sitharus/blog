@@ -464,7 +464,7 @@ static CITATION_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r#"\\cite\{([^}]+)\}"#).expect("Could not create citation regex"));
 
 static REFERENCE_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"@(journal|website)\{.*?,(?s).*?(?-s)\}\r?\n?")
+    Regex::new(r"@(journal|website|book)\{.*?,(?s).*?(?-s)\}\r?\n?")
         .expect("Could not create reference regex")
 });
 
